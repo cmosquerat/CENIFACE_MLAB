@@ -143,6 +143,40 @@ class SIASCAFEClient:
             logger.info("[SELENIUM] Iniciando configuración de Chrome...")
             chrome_options = Options()
             
+            # Configurar proxy si está disponible en variables de entorno
+            # Intentar primero desde config.py (que ya construye la URL completa)
+            try:
+                from config import SIASCAFE_PROXY_URL
+                proxy_url = SIASCAFE_PROXY_URL
+            except:
+                # Fallback a variable de entorno directa
+                proxy_url = os.getenv('SIASCAFE_PROXY_URL', '')
+                # O construir desde componentes separados
+                if not proxy_url:
+                    proxy_host = os.getenv('SIASCAFE_PROXY_HOST', '')
+                    proxy_port = os.getenv('SIASCAFE_PROXY_PORT', '')
+                    proxy_user = os.getenv('SIASCAFE_PROXY_USER', '')
+                    proxy_pass = os.getenv('SIASCAFE_PROXY_PASS', '')
+                    if proxy_host and proxy_port:
+                        if proxy_user and proxy_pass:
+                            proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
+                        else:
+                            proxy_url = f"http://{proxy_host}:{proxy_port}"
+            
+            if proxy_url:
+                # Ocultar contraseña en logs
+                proxy_display = proxy_url
+                if '@' in proxy_display:
+                    parts = proxy_display.split('@')
+                    if ':' in parts[0]:
+                        user_pass = parts[0].split(':')
+                        proxy_display = f"http://{user_pass[0]}:****@{parts[1]}"
+                logger.info(f"[SELENIUM] Configurando proxy HTTP: {proxy_display}")
+                chrome_options.add_argument(f'--proxy-server={proxy_url}')
+                # Deshabilitar verificación SSL si es necesario (solo para desarrollo)
+                # chrome_options.add_argument('--ignore-certificate-errors')
+                # chrome_options.add_argument('--ignore-ssl-errors')
+            
             if self.headless:
                 logger.info("[SELENIUM] Modo headless activado")
                 chrome_options.add_argument('--headless=new')
