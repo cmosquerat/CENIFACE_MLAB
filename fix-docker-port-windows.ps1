@@ -34,14 +34,21 @@ Write-Host ""
 Write-Host "[3] Reiniciando contenedor con mapeo de puertos explícito..." -ForegroundColor Yellow
 
 # 4. Reiniciar contenedor
-docker run -d `
-  --name $containerName `
-  --restart=unless-stopped `
-  -p 127.0.0.1:5005:5000 `
-  --env-file .env `
-  -v "${currentDir}\multilab.db:/app/multilab.db:ro" `
-  -v "${currentDir}\static\pdfs:/app/static/pdfs" `
-  multilab-agroanalitica:latest
+# El proxy se configura a nivel de Docker Desktop (transparente)
+Write-Host "  Proxy: Configurado a nivel de Docker Desktop (transparente)" -ForegroundColor Green
+
+$dockerArgs = @(
+    "run", "-d",
+    "--name", $containerName,
+    "--restart=unless-stopped",
+    "-p", "127.0.0.1:5005:5000",
+    "--env-file", ".env",
+    "-v", "${currentDir}\multilab.db:/app/multilab.db:ro",
+    "-v", "${currentDir}\static\pdfs:/app/static/pdfs",
+    "multilab-agroanalitica:latest"
+)
+
+docker $dockerArgs
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Contenedor reiniciado" -ForegroundColor Green

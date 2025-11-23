@@ -65,12 +65,10 @@ RUN mkdir -p static/pdfs static/css static/js static/images templates data
 # Variables de entorno por defecto
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
-ENV PORT=5000
-ENV DEBUG=False
-ENV HOST=0.0.0.0
+ENV PORT=5005
 
-# Exponer puerto interno (el mapeo externo se hace en docker run)
-EXPOSE 5000
+# Exponer puerto
+EXPOSE 5005
 
 # Usuario no root (mejores prácticas de seguridad)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app

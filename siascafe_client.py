@@ -143,52 +143,6 @@ class SIASCAFEClient:
             logger.info("[SELENIUM] Iniciando configuración de Chrome...")
             chrome_options = Options()
             
-            # Configurar proxy si está disponible
-            # Cargar desde config.py que ya procesa las variables de entorno
-            proxy_url = None
-            try:
-                from config import SIASCAFE_PROXY_URL
-                proxy_url = SIASCAFE_PROXY_URL
-                logger.info(f"[SELENIUM] Proxy cargado desde config.py")
-            except ImportError as e:
-                logger.warning(f"[SELENIUM] No se pudo importar config.py: {e}")
-                # Fallback: leer directamente de variables de entorno
-                proxy_url = os.getenv('SIASCAFE_PROXY_URL', '')
-                if not proxy_url:
-                    # Construir desde componentes separados
-                    proxy_host = os.getenv('SIASCAFE_PROXY_HOST', '')
-                    proxy_port = os.getenv('SIASCAFE_PROXY_PORT', '')
-                    proxy_user = os.getenv('SIASCAFE_PROXY_USER', '')
-                    proxy_pass = os.getenv('SIASCAFE_PROXY_PASS', '')
-                    if proxy_host and proxy_port:
-                        if proxy_user and proxy_pass:
-                            proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
-                        else:
-                            proxy_url = f"http://{proxy_host}:{proxy_port}"
-            
-            if proxy_url and proxy_url.strip():
-                # Ocultar contraseña en logs
-                proxy_display = proxy_url
-                if '@' in proxy_display:
-                    parts = proxy_display.split('@')
-                    if ':' in parts[0]:
-                        user_pass = parts[0].split(':')
-                        proxy_display = f"http://{user_pass[0]}:****@{parts[1]}"
-                
-                logger.info("=" * 60)
-                logger.info("[SELENIUM] [PROXY] Configuración de proxy detectada")
-                logger.info(f"[SELENIUM] [PROXY] Proxy HTTP configurado: {proxy_display}")
-                logger.info("[SELENIUM] [PROXY] Todas las conexiones pasarán por el proxy")
-                logger.info("=" * 60)
-                
-                chrome_options.add_argument(f'--proxy-server={proxy_url}')
-            else:
-                logger.warning("=" * 60)
-                logger.warning("[SELENIUM] [PROXY] ⚠️  ADVERTENCIA: No se configuró proxy")
-                logger.warning("[SELENIUM] [PROXY] SIASCAFE puede estar bloqueado geográficamente")
-                logger.warning("[SELENIUM] [PROXY] Configura SIASCAFE_PROXY_URL en .env para usar proxy")
-                logger.warning("=" * 60)
-            
             if self.headless:
                 logger.info("[SELENIUM] Modo headless activado")
                 chrome_options.add_argument('--headless=new')
@@ -251,6 +205,10 @@ class SIASCAFEClient:
                 "plugins.always_open_pdf_externally": True
             }
             chrome_options.add_experimental_option("prefs", prefs)
+            
+            # El proxy se configura a nivel de Docker daemon, no dentro del contenedor
+            # Chrome/Selenium usará automáticamente el proxy del sistema (Docker)
+            logger.info("[SELENIUM] Proxy configurado a nivel de Docker (transparente)")
             
             # Configurar ChromeDriver: primero intentar usar el del sistema, luego webdriver-manager
             logger.info("[SELENIUM] Configurando ChromeDriver...")
@@ -427,33 +385,6 @@ class SIASCAFEClient:
         logger.info(f"[SIASCAFE] URL objetivo: {SIASCAFE_URL}")
         logger.info(f"[SIASCAFE] Código muestra: {form_data.get('codigoMuestra', 'N/A')}")
         logger.info(f"[SIASCAFE] Etapa: {user_data.get('etapa', 'N/A')}")
-        
-        # Verificar y mostrar configuración de proxy
-        logger.info("")
-        logger.info("[SIASCAFE] [PROXY] Verificando configuración de proxy...")
-        try:
-            from config import SIASCAFE_PROXY_URL
-            if SIASCAFE_PROXY_URL and SIASCAFE_PROXY_URL.strip():
-                proxy_display = SIASCAFE_PROXY_URL
-                if '@' in proxy_display:
-                    parts = proxy_display.split('@')
-                    if ':' in parts[0]:
-                        user_pass = parts[0].split(':')
-                        proxy_display = f"http://{user_pass[0]}:****@{parts[1]}"
-                logger.info("[SIASCAFE] [PROXY] ✓ PROXY CONFIGURADO")
-                logger.info(f"[SIASCAFE] [PROXY] URL: {proxy_display}")
-                logger.info("[SIASCAFE] [PROXY] La conexión a SIASCAFE usará este proxy")
-            else:
-                logger.warning("[SIASCAFE] [PROXY] ✗ PROXY NO CONFIGURADO")
-                logger.warning("[SIASCAFE] [PROXY] Puede haber problemas de conexión si hay bloqueo geográfico")
-        except Exception as e:
-            proxy_env = os.getenv('SIASCAFE_PROXY_URL', '')
-            if proxy_env and proxy_env.strip():
-                logger.info("[SIASCAFE] [PROXY] ✓ Proxy detectado desde variable de entorno")
-            else:
-                logger.warning("[SIASCAFE] [PROXY] ✗ PROXY NO CONFIGURADO")
-                logger.warning(f"[SIASCAFE] [PROXY] Error al cargar config: {e}")
-        logger.info("")
         
         try:
             # Navegar a SIASCAFE
