@@ -1,0 +1,116 @@
+{
+  "nombre": [
+    {
+      "by": "xpath",
+      "value": "//textarea[@id=':r0:']"
+    }
+  ],
+  "departamento": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r1:']"
+    }
+  ],
+  "municipio": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r2:']"
+    }
+  ],
+  "codigoMuestra": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r3:']"
+    }
+  ],
+  "codigo": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r4:']"
+    }
+  ],
+  "finca": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r5:']"
+    }
+  ],
+  "lote": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r6:']"
+    }
+  ],
+  "edad": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r8:']"
+    }
+  ],
+  "sombrio": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':ra:']"
+    }
+  ],
+  "fechaMuestreo": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rb:']"
+    }
+  ],
+  "pH": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rc:']"
+    }
+  ],
+  "MO": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rd:']"
+    }
+  ],
+  "P": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':re:']"
+    }
+  ],
+  "K": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rf:']"
+    }
+  ],
+  "Mg": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rg:']"
+    }
+  ],
+  "Ca": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rh:']"
+    }
+  ],
+  "siembra": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':r9:']"
+    }
+  ],
+  "Al": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':ri:']"
+    }
+  ],
+  "S": [
+    {
+      "by": "xpath",
+      "value": "//input[@id=':rj:']"
+    }
+  ]
+}

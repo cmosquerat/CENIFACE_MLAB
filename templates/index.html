@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilab Agroanalítica - Procesamiento de Análisis SIASCAFE</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Multilab Agroanalítica" onerror="this.style.display='none'; console.log('Logo no encontrado')">
+                <h1>Multilab Agroanalítica</h1>
+            </div>
+            <nav>
+                <span class="tagline">Procesamiento de Análisis SIASCAFE</span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <section class="intro-section">
+                <h2>Procesamiento Masivo de Análisis</h2>
+                <p>Ingrese los datos de los análisis a procesar. Los PDFs se generarán automáticamente usando SIASCAFE.</p>
+            </section>
+
+            <section class="form-section">
+                <div class="form-group">
+                    <label for="year">Año del Análisis:</label>
+                    <select id="year" class="form-control">
+                        <option value="">Seleccione el año</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022</option>
+                        <option value="2021">2021</option>
+                        <option value="2020">2020</option>
+                        <option value="2019">2019</option>
+                        <option value="2018">2018</option>
+                        <option value="2017">2017</option>
+                        <option value="2016">2016</option>
+                        <option value="2015">2015</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Datos de Análisis</h3>
+                        <button type="button" class="btn btn-secondary" id="addRow">+ Agregar Fila</button>
+                        <button type="button" class="btn btn-secondary" id="clearTable">Limpiar Tabla</button>
+                    </div>
+                    <table id="analysesTable" class="editable-table">
+                        <thead>
+                            <tr>
+                                <th>No. Lab</th>
+                                <th>ETAPA</th>
+                                <th>EDAD M</th>
+                                <th>DENSIDAD</th>
+                                <th>SOMBRIO</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td><input type="number" class="table-input" data-field="codigo_lab" placeholder="Ej: 10766" min="1"></td>
+                                <td>
+                                    <select class="table-input" data-field="etapa">
+                                        <option value="">Seleccione</option>
+                                        <option value="CRECIMIENTO">CRECIMIENTO</option>
+                                        <option value="ZOCA">ZOCA</option>
+                                        <option value="PRODUCCION">PRODUCCION</option>
+                                    </select>
+                                </td>
+                                <td><input type="number" class="table-input" data-field="edad" placeholder="0" min="0" max="1200"></td>
+                                <td><input type="number" class="table-input" data-field="densidad" placeholder="4444" min="2000" max="20000"></td>
+                                <td><input type="number" class="table-input" data-field="sombrio" placeholder="0" min="0" max="100"></td>
+                                <td><button type="button" class="btn-remove" onclick="removeRow(this)">×</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" id="processBtn">Procesar Análisis</button>
+                    <button type="button" class="btn btn-secondary" id="downloadAllBtn" style="display:none;">Descargar Todos los PDFs</button>
+                </div>
+            </section>
+
+            <section id="resultsSection" class="results-section" style="display:none;">
+                <h3>Resultados del Procesamiento</h3>
+                <div id="resultsContainer"></div>
+                <div id="progressBar" class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="progressText" class="progress-text"></div>
+            </section>
+
+            <section class="terminal-section">
+                <div class="terminal-header">
+                    <h3>Logs del Sistema</h3>
+                    <button type="button" class="btn-terminal" id="clearLogsBtn">Limpiar</button>
+                    <button type="button" class="btn-terminal" id="toggleTerminalBtn">Minimizar</button>
+                </div>
+                <div id="terminalContainer" class="terminal-container">
+                    <div id="terminalContent" class="terminal-content">
+                        <div class="terminal-line">Sistema iniciado. Esperando actividad...</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Multilab Agroanalítica. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Verificar que la página se cargó completamente
+        window.addEventListener('load', function() {
+            console.log('Página completamente cargada');
+            console.log('Elementos encontrados:', {
+                addRow: !!document.getElementById('addRow'),
+                clearTable: !!document.getElementById('clearTable'),
+                processBtn: !!document.getElementById('processBtn'),
+                tableBody: !!document.getElementById('tableBody')
+            });
+        });
+    </script>
+</body>
+</html>
+

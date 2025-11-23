@@ -1,0 +1,49 @@
+# Cookies de sesión (contienen información sensible)
+siascafe_cookies.json
+
+# Archivos de configuración local
+.env
+
+# Archivos temporales
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+
+# Archivos de log
+*.log
+
+# Archivos de resultado
+siascafe_result.json
+siascafe_response.html
+siascafe_resource_*.html
+
+# Base de datos SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos PDF generados
+*.pdf
+
+# Archivos HAR (pueden contener información sensible)
+*.har
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+

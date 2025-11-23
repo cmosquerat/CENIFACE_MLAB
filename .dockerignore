@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.pdf
+!resultado_*.pdf
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+# docker-entrypoint.sh debe incluirse, no ignorarse
+
+# Git
+.git/
+.gitignore
+
+# Archivos de desarrollo
+test_*.py
+diagnose_*.py
+start_web.py
+README*.md
+INSTALACION*.md
+install_*.sh
+
+# Archivos de configuración local (se copiarán manualmente si es necesario)
+env.example
+
+# Base de datos (se debe montar como volumen)
+# multilab.db
+
+# Archivos de Selenium
+chromedriver*
+geckodriver*
+
+# Archivos de descarga
+/tmp/
+static/pdfs/*.pdf
