@@ -145,9 +145,24 @@ async function processAnalyses() {
         }
 
         currentJobId = result.job_id;
-        document.getElementById('resultsSection').style.display = 'block';
-        document.getElementById('resultsContainer').innerHTML = '';
-        document.getElementById('downloadAllBtn').style.display = 'none';
+        // Mostrar sección de resultados
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection) {
+            resultsSection.style.display = 'block';
+            resultsSection.classList.add('show');
+        }
+        
+        // Limpiar contenedor de resultados
+        const resultsContainer = document.getElementById('resultsContainer');
+        if (resultsContainer) {
+            resultsContainer.innerHTML = '';
+        }
+        
+        // Ocultar botón de descarga masiva inicialmente
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        if (downloadAllBtn) {
+            downloadAllBtn.style.display = 'none';
+        }
 
         // Iniciar polling de estado
         startStatusPolling(currentJobId);
@@ -189,35 +204,56 @@ function updateProgress(status) {
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
     const resultsContainer = document.getElementById('resultsContainer');
+    const resultsSection = document.getElementById('resultsSection');
+
+    if (!resultsContainer || !progressFill || !progressText) {
+        console.error('Elementos de resultados no encontrados');
+        return;
+    }
+
+    // Asegurar que la sección de resultados esté visible
+    if (resultsSection) {
+        resultsSection.style.display = 'block';
+        resultsSection.classList.add('show');
+    }
 
     const percentage = status.total > 0 ? (status.completed / status.total) * 100 : 0;
-    progressFill.style.width = percentage + '%';
-    progressFill.textContent = `${status.completed} / ${status.total}`;
-    progressText.textContent = `Procesando: ${status.completed} de ${status.total} análisis completados`;
+    if (progressFill) {
+        progressFill.style.width = percentage + '%';
+        progressFill.textContent = `${status.completed} / ${status.total}`;
+    }
+    if (progressText) {
+        progressText.textContent = `Procesando: ${status.completed} de ${status.total} análisis completados`;
+    }
 
-    // Mostrar resultados
-    resultsContainer.innerHTML = '';
-    status.results.forEach(result => {
-        const resultDiv = document.createElement('div');
-        resultDiv.className = `result-item ${result.status}`;
-        
-        if (result.status === 'success') {
-            resultDiv.innerHTML = `
-                <div>
-                    <strong>Código Lab ${result.codigo_lab}:</strong> ${result.message}
-                </div>
-                <a href="/api/download/${result.filename}" class="download-link" download>Descargar PDF</a>
-            `;
-        } else {
-            resultDiv.innerHTML = `
-                <div>
-                    <strong>Código Lab ${result.codigo_lab}:</strong> ${result.message}
-                </div>
-            `;
-        }
-        
-        resultsContainer.appendChild(resultDiv);
-    });
+    // Mostrar resultados individuales
+    if (status.results && status.results.length > 0) {
+        resultsContainer.innerHTML = '';
+        status.results.forEach(result => {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result-item ${result.status}`;
+            
+            if (result.status === 'success') {
+                resultDiv.innerHTML = `
+                    <div>
+                        <strong>Código Lab ${result.codigo_lab}:</strong> ${result.message}
+                    </div>
+                    <a href="/api/download/${result.filename}" class="download-link" download>Descargar PDF</a>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div>
+                        <strong>Código Lab ${result.codigo_lab}:</strong> ${result.message}
+                    </div>
+                `;
+            }
+            
+            resultsContainer.appendChild(resultDiv);
+        });
+    } else {
+        // Mostrar mensaje si no hay resultados aún
+        resultsContainer.innerHTML = '<div class="terminal-line log-level-info">Esperando resultados...</div>';
+    }
 }
 
 // Descargar todos los PDFs
