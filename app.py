@@ -16,6 +16,11 @@ from dotenv import load_dotenv
 # Cargar variables de entorno desde .env
 load_dotenv()
 
+# Configurar logging primero
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+# Intentar cargar módulos
 try:
     from database import DatabaseManager
     from data_mapper import DataMapper
@@ -24,10 +29,6 @@ try:
 except ImportError as e:
     logger.warning(f"Algunos módulos no se pudieron cargar: {e}")
     MODULES_LOADED = False
-
-# Configurar logging con handler personalizado para capturar logs
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
 
 # Handler personalizado para capturar logs en el buffer
 class WebLogHandler(logging.Handler):
@@ -42,6 +43,10 @@ class WebLogHandler(logging.Handler):
             
             # Ignorar logs de health checks frecuentes
             if '/health' in message and 'GET' in message:
+                return
+            
+            # Ignorar logs de polling de estado (/api/status)
+            if '/api/status' in message and 'GET' in message:
                 return
             
             log_entry = {
