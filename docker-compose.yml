@@ -28,7 +28,7 @@ services:
       - PORT=5000
       - HOST=0.0.0.0
       - DEBUG=False
-      - DB_PATH=/app/data/multilab.db
+      - DB_PATH=/app/multilab.db
       - PDF_STORAGE_DIR=/app/static/pdfs
       # Proxy transparente: solo apuntamos al bridge interno (sin credenciales)
       - HTTP_PROXY=http://proxy-bridge:8080
