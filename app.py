@@ -71,7 +71,7 @@ app = Flask(__name__, static_url_path='/static')
 CORS(app)
 
 # Configurar para que url_for funcione correctamente
-app.config['SERVER_NAME'] = None  # Se configurará automáticamente en runtime
+app.config['SERVER_NAME'] = None  # Se configurará automáticamente en runtime (puerto 5000)
 app.config['APPLICATION_ROOT'] = '/'
 app.config['PREFERRED_URL_SCHEME'] = 'http'
 
@@ -341,7 +341,7 @@ if __name__ == '__main__':
     try:
         # Obtener configuración desde variables de entorno
         host = os.getenv('HOST', '0.0.0.0')
-        port = int(os.getenv('PORT', 5005))
+        port = int(os.getenv('PORT', 5000))
         debug = os.getenv('DEBUG', 'False').lower() == 'true'
         
         logger.info("=" * 60)
