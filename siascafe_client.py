@@ -206,9 +206,14 @@ class SIASCAFEClient:
             }
             chrome_options.add_experimental_option("prefs", prefs)
             
-            # El proxy se configura a nivel de Docker daemon, no dentro del contenedor
-            # Chrome/Selenium usará automáticamente el proxy del sistema (Docker)
-            logger.info("[SELENIUM] Proxy configurado a nivel de Docker (transparente)")
+            # Configurar proxy desde variables de entorno (si están disponibles)
+            # El proxy-bridge maneja la autenticación, solo necesitamos apuntar a él
+            proxy_url = os.getenv('HTTP_PROXY') or os.getenv('http_proxy')
+            if proxy_url:
+                logger.info(f"[SELENIUM] Configurando proxy para Chrome: {proxy_url}")
+                chrome_options.add_argument(f'--proxy-server={proxy_url}')
+            else:
+                logger.info("[SELENIUM] No se detectó configuración de proxy en variables de entorno")
             
             # Configurar ChromeDriver: primero intentar usar el del sistema, luego webdriver-manager
             logger.info("[SELENIUM] Configurando ChromeDriver...")
