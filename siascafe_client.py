@@ -407,11 +407,36 @@ class SIASCAFEClient:
             # En lugar de esperar un tiempo fijo, esperar explícitamente
             # a que el portlet React principal esté montado.
             logger.info("[SELENIUM] Esperando a que se monte el portlet principal...")
-            WebDriverWait(self.driver, 30).until(
+            WebDriverWait(self.driver, 60).until(  # Aumentado a 60 segundos
                 EC.presence_of_element_located(
                     (By.CSS_SELECTOR, "div[id^='js-portlet-_pacanalisissuelosindividual_INSTANCE_']")
                 )
             )
+            logger.info("[SELENIUM] [OK] Portlet React de SIASCAFÉ detectado.")
+            
+            # Esperar adicional para que los módulos de Liferay se carguen completamente
+            # Verificar que los campos del formulario estén presentes y sean interactuables
+            logger.info("[SELENIUM] Esperando a que los módulos de Liferay se carguen completamente...")
+            try:
+                # Esperar a que al menos un campo del formulario esté presente y sea interactuable
+                WebDriverWait(self.driver, 60).until(
+                    EC.presence_of_element_located((By.ID, ":r0:"))  # Campo "nombre"
+                )
+                logger.info("[SELENIUM] [OK] Campos del formulario detectados.")
+                
+                # Esperar adicional para que JavaScript termine de inicializar
+                # Verificar que el documento esté en estado "complete"
+                WebDriverWait(self.driver, 30).until(
+                    lambda driver: driver.execute_script("return document.readyState") == "complete"
+                )
+                logger.info("[SELENIUM] [OK] Documento en estado 'complete'.")
+                
+                # Pequeña pausa adicional para que los módulos AMD terminen de cargar
+                time.sleep(2)
+                logger.info("[SELENIUM] [OK] Espera adicional completada. Módulos de Liferay deberían estar cargados.")
+                
+            except TimeoutException as e:
+                logger.warning(f"[SELENIUM] Timeout esperando campos del formulario, pero continuando: {e}")
             
             # Verificar título de la página
             try:
@@ -422,15 +447,20 @@ class SIASCAFEClient:
             except Exception as e:
                 logger.warning(f"[SELENIUM] No se pudo obtener título/URL: {e}")
             
-            # Verificar si hay errores en la consola
+            # Verificar si hay errores críticos en la consola (solo mostrar errores, no warnings)
             try:
                 logs = self.driver.get_log('browser')
                 if logs:
-                    logger.warning(f"[SELENIUM] Se encontraron {len(logs)} mensajes en la consola del navegador")
-                    for log in logs[:5]:  # Mostrar solo los primeros 5
-                        logger.warning(f"[SELENIUM] Console: {log.get('message', '')}")
+                    error_logs = [log for log in logs if log.get('level') == 'SEVERE']
+                    if error_logs:
+                        logger.warning(f"[SELENIUM] Se encontraron {len(error_logs)} errores SEVERE en la consola del navegador")
+                        for log in error_logs[:3]:  # Mostrar solo los primeros 3 errores críticos
+                            logger.warning(f"[SELENIUM] Console ERROR: {log.get('message', '')[:200]}")  # Limitar longitud
+                    else:
+                        logger.info("[SELENIUM] No se encontraron errores críticos en la consola (los warnings de AMD Loader son normales)")
             except Exception:
                 # Algunos drivers o modos no soportan get_log
+                logger.debug("[SELENIUM] No se pudo acceder a los logs del navegador")
                 pass
             
             logger.info("[SIASCAFE] Llenando formulario...")
@@ -485,7 +515,8 @@ class SIASCAFEClient:
         """Llena el formulario de SIASCAFE con los datos"""
         logger.info("[SELENIUM] Buscando formulario en la página...")
         # Aumentar timeout porque la app es React/Liferay y tarda en montar
-        wait = WebDriverWait(self.driver, 30)
+        # Los módulos AMD de Liferay pueden tardar más en cargar, especialmente con proxy
+        wait = WebDriverWait(self.driver, 60)
         container = None
         
         try:
@@ -968,32 +999,47 @@ class SIASCAFEClient:
     def _submit_form(self):
         """Envía el formulario"""
         logger.info("[SELENIUM] Enviando formulario con botón 'Enviar Datos'...")
+        wait = WebDriverWait(self.driver, 60)  # Timeout aumentado para esperar módulos de Liferay
         try:
             # Tu botón concreto: <button type="submit">Enviar Datos</button>
             try:
-                # Localizar directamente por XPath usando el texto visible "Enviar Datos"
-                submit_btn = self.driver.find_element(
-                    By.XPATH, "//button[@type='submit' and normalize-space(.)='Enviar Datos']"
+                # Esperar a que el botón esté presente y sea clickeable
+                logger.info("[SELENIUM] Esperando a que el botón 'Enviar Datos' esté disponible...")
+                submit_btn = wait.until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[@type='submit' and normalize-space(.)='Enviar Datos']"))
                 )
-                logger.info("[SELENIUM] Botón de envío localizado por XPath con texto 'Enviar Datos'")
+                logger.info("[SELENIUM] Botón de envío localizado y listo para hacer clic")
                 # Asegurarnos de que es clickeable: scroll al centro y click por JS
                 self.driver.execute_script(
                     "arguments[0].scrollIntoView({block: 'center', inline: 'center'});",
                     submit_btn,
                 )
+                time.sleep(0.5)  # Pequeña pausa antes del clic
                 self.driver.execute_script("arguments[0].click();", submit_btn)
                 logger.info("[SELENIUM] [OK] Formulario enviado haciendo clic JS en botón 'Enviar Datos'")
                 time.sleep(2)
-            except Exception as e:
-                logger.error(f"[SELENIUM] No se pudo hacer clic en botón 'Enviar Datos': {e}")
+            except TimeoutException as e:
+                logger.error(f"[SELENIUM] Timeout esperando botón 'Enviar Datos': {e}")
                 logger.info("[SELENIUM] Intentando enviar formulario con form.submit()...")
                 try:
-                    form = self.driver.find_element(By.CSS_SELECTOR, "form")
+                    form = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "form")))
                     form.submit()
                     logger.info("[SELENIUM] [OK] Formulario enviado con form.submit()")
                     time.sleep(2)
                 except Exception as e2:
                     logger.error(f"[SELENIUM] No se pudo enviar el formulario ni con form.submit(): {e2}")
+                    raise
+            except Exception as e:
+                logger.error(f"[SELENIUM] No se pudo hacer clic en botón 'Enviar Datos': {e}")
+                logger.info("[SELENIUM] Intentando enviar formulario con form.submit()...")
+                try:
+                    form = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "form")))
+                    form.submit()
+                    logger.info("[SELENIUM] [OK] Formulario enviado con form.submit()")
+                    time.sleep(2)
+                except Exception as e2:
+                    logger.error(f"[SELENIUM] No se pudo enviar el formulario ni con form.submit(): {e2}")
+                    raise
             
         except Exception as e:
             logger.error(f"[SELENIUM] [ERROR] Error al enviar formulario: {e}")

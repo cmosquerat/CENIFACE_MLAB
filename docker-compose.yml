@@ -22,6 +22,7 @@ services:
     container_name: multilab-agroanalitica
     depends_on:
       - proxy-bridge
+    shm_size: '2gb'  # Memoria compartida aumentada para Chrome headless con proxy
     ports:
       - "5005:5000"
     environment:
