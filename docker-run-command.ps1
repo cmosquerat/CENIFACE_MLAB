@@ -1,6 +1,5 @@
 # Comando Docker Run para PowerShell (versión simple)
 # Copia y pega este comando en PowerShell
-# NOTA: El proxy se configura a nivel de Docker Desktop (transparente)
 
 $currentDir = Get-Location
 

@@ -99,7 +99,6 @@ CURRENT_DIR=$(pwd)
 # Ejecutar contenedor con reinicio automático
 info "Iniciando contenedor con reinicio automático..."
 info "Puerto externo: 5005 -> Puerto interno: 5000"
-info "Proxy: Configurado a nivel de Docker daemon (transparente)"
 
 docker run -d \
   --name ${CONTAINER_NAME} \

@@ -63,21 +63,14 @@ if (-not (docker images --format '{{.Repository}}:{{.Tag}}' | Select-String -Pat
 # Ejecutar contenedor
 Write-Host "[INFO] Iniciando contenedor con reinicio automático..." -ForegroundColor Green
 
-# El proxy se configura a nivel de Docker Desktop (transparente)
-Write-Host "[INFO] Proxy: Configurado a nivel de Docker Desktop (transparente)" -ForegroundColor Green
-
-$dockerArgs = @(
-    "run", "-d",
-    "--name", $containerName,
-    "--restart=unless-stopped",
-    "-p", "127.0.0.1:5005:5000",
-    "--env-file", ".env",
-    "-v", "${currentDir}\multilab.db:/app/multilab.db:ro",
-    "-v", "${currentDir}\static\pdfs:/app/static/pdfs",
-    $imageName
-)
-
-docker $dockerArgs
+docker run -d `
+  --name $containerName `
+  --restart=unless-stopped `
+  -p 127.0.0.1:5005:5000 `
+  --env-file .env `
+  -v "${currentDir}\multilab.db:/app/multilab.db:ro" `
+  -v "${currentDir}\static\pdfs:/app/static/pdfs" `
+  $imageName
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Error al iniciar el contenedor." -ForegroundColor Red
