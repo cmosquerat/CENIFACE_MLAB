@@ -36,10 +36,21 @@ Write-Host "[INFO] Copiando archivos actualizados al contenedor..." -ForegroundC
 foreach ($file in $filesToCopy) {
     if (Test-Path $file) {
         Write-Host "  Copiando: $file" -ForegroundColor White
-        docker cp "$file" "${containerName}:/app/"
+        # Si es un directorio, copiar recursivamente
+        if ((Get-Item $file) -is [System.IO.DirectoryInfo]) {
+            docker cp "${file}/." "${containerName}:/app/$file/"
+        } else {
+            docker cp "$file" "${containerName}:/app/"
+        }
     } else {
         Write-Host "  [WARN] Archivo no encontrado: $file" -ForegroundColor Yellow
     }
+}
+
+# Forzar recarga de variables de entorno copiando .env
+if (Test-Path ".env") {
+    Write-Host "  [INFO] Forzando recarga de .env..." -ForegroundColor Cyan
+    docker cp ".env" "${containerName}:/app/.env"
 }
 
 Write-Host ""

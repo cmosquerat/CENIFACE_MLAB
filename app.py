@@ -36,6 +36,11 @@ class WebLogHandler(logging.Handler):
         try:
             # Filtrar logs que no queremos mostrar en la terminal web
             message = self.format(record)
+            record_name = str(record.name).lower()
+            
+            # Ignorar todos los logs de werkzeug (requests HTTP)
+            if 'werkzeug' in record_name:
+                return
             
             # Ignorar logs de peticiones GET a /api/logs (evita spam)
             if '/api/logs' in message and 'GET' in message:
@@ -46,7 +51,7 @@ class WebLogHandler(logging.Handler):
                 return
             
             # Ignorar logs de polling de estado (/api/status)
-            if '/api/status' in message and 'GET' in message:
+            if '/api/status' in message:
                 return
             
             log_entry = {

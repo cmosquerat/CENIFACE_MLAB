@@ -39,11 +39,22 @@ echo "[INFO] Copiando archivos actualizados al contenedor..."
 for file in "${FILES_TO_COPY[@]}"; do
     if [ -e "$file" ]; then
         echo "  Copiando: $file"
-        docker cp "$file" "${CONTAINER_NAME}:/app/"
+        # Si es un directorio, copiar recursivamente
+        if [ -d "$file" ]; then
+            docker cp "$file/." "${CONTAINER_NAME}:/app/$file/"
+        else
+            docker cp "$file" "${CONTAINER_NAME}:/app/"
+        fi
     else
         echo "  [WARN] Archivo no encontrado: $file"
     fi
 done
+
+# Forzar recarga de variables de entorno copiando .env
+if [ -f ".env" ]; then
+    echo "  [INFO] Forzando recarga de .env..."
+    docker cp ".env" "${CONTAINER_NAME}:/app/.env"
+fi
 
 echo ""
 echo "[INFO] Reiniciando contenedor para aplicar cambios..."

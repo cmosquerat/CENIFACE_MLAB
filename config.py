@@ -39,10 +39,13 @@ if not SIASCAFE_PROXY_URL and SIASCAFE_PROXY_HOST and SIASCAFE_PROXY_PORT:
     else:
         SIASCAFE_PROXY_URL = f"http://{SIASCAFE_PROXY_HOST}:{SIASCAFE_PROXY_PORT}"
 
+logger.info("=" * 60)
 logger.info("[CONFIG] Configuración cargada:")
 logger.info(f"[CONFIG]   DB_PATH: {DB_PATH}")
 logger.info(f"[CONFIG]   SIASCAFE_BASE_URL: {SIASCAFE_BASE_URL}")
 logger.info(f"[CONFIG]   SIASCAFE_URL: {SIASCAFE_URL}")
+
+# Mostrar configuración de proxy de forma destacada
 if SIASCAFE_PROXY_URL:
     # Ocultar contraseña en logs
     proxy_display = SIASCAFE_PROXY_URL
@@ -51,9 +54,17 @@ if SIASCAFE_PROXY_URL:
         if ':' in parts[0]:
             user_pass = parts[0].split(':')
             proxy_display = f"http://{user_pass[0]}:****@{parts[1]}"
-    logger.info(f"[CONFIG]   SIASCAFE_PROXY_URL: {proxy_display}")
+    logger.info("=" * 60)
+    logger.info("[CONFIG] [PROXY] ✓ PROXY CONFIGURADO")
+    logger.info(f"[CONFIG] [PROXY] URL: {proxy_display}")
+    logger.info("[CONFIG] [PROXY] Todas las conexiones a SIASCAFE usarán este proxy")
+    logger.info("=" * 60)
 else:
-    logger.info(f"[CONFIG]   SIASCAFE_PROXY_URL: No configurado")
+    logger.warning("=" * 60)
+    logger.warning("[CONFIG] [PROXY] ✗ PROXY NO CONFIGURADO")
+    logger.warning("[CONFIG] [PROXY] SIASCAFE puede estar bloqueado geográficamente")
+    logger.warning("[CONFIG] [PROXY] Configura SIASCAFE_PROXY_URL en .env")
+    logger.warning("=" * 60)
 
 # Configuración del servidor
 HOST = os.getenv('HOST', '0.0.0.0')
