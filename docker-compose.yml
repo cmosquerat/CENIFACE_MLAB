@@ -12,11 +12,7 @@ services:
     restart: unless-stopped
     networks:
       - multilab-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # Sin healthcheck - el proxy se considera listo cuando el contenedor está corriendo
 
   # Aplicación Multilab
   multilab-web:
@@ -25,8 +21,7 @@ services:
       dockerfile: Dockerfile
     container_name: multilab-agroanalitica
     depends_on:
-      proxy-bridge:
-        condition: service_healthy
+      - proxy-bridge
     ports:
       - "5005:5000"
     environment:
