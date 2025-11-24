@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 # Evitar prompts interactivos durante la instalación
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema (bash viene incluido en Ubuntu base)
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     unzip \
     ca-certificates \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar Google Chrome
@@ -53,28 +54,35 @@ COPY requirements.txt .
 # Instalar dependencias de Python
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copiar script de entrada primero (antes de COPY . . para evitar que se ignore)
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-
 # Copiar código de la aplicación
 COPY . .
 
 # Crear directorios necesarios
 RUN mkdir -p static/pdfs static/css static/js static/images templates data
 
+# Convertir terminaciones de línea del script de entrada (CRLF -> LF) y dar permisos
+# Esto es necesario porque Windows puede crear archivos con CRLF que Linux no ejecuta correctamente
+# Usamos dos2unix si está disponible, o sed como alternativa
+RUN if [ -f docker-entrypoint.sh ]; then \
+        (dos2unix docker-entrypoint.sh 2>/dev/null || sed -i 's/\r$//' docker-entrypoint.sh) && \
+        mv docker-entrypoint.sh /docker-entrypoint.sh && \
+        chmod +x /docker-entrypoint.sh && \
+        echo "docker-entrypoint.sh configurado correctamente"; \
+    else \
+        echo "ERROR: docker-entrypoint.sh no encontrado en el contexto de build" && exit 1; \
+    fi
+
 # Variables de entorno por defecto
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
-ENV PORT=5005
+ENV PORT=5000
 
-# Exponer puerto
-EXPOSE 5005
+# Exponer puerto (los scripts mapean 5005:5000, así que el contenedor escucha en 5000)
+EXPOSE 5000
 
 # Usuario no root (mejores prácticas de seguridad)
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-
-# Dar permisos al script de entrada
-RUN chmod +x /docker-entrypoint.sh && chown appuser:appuser /docker-entrypoint.sh
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app && \
+    chown appuser:appuser /docker-entrypoint.sh
 
 USER appuser
 

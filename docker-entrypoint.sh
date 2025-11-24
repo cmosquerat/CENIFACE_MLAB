@@ -23,7 +23,7 @@ fi
 
 echo "Chrome versión: $(google-chrome --version 2>/dev/null || echo 'N/A')"
 echo "Python versión: $(python3 --version 2>/dev/null || echo 'N/A')"
-echo "Puerto: ${PORT:-5005}"
+echo "Puerto: ${PORT:-5000}"
 echo "Host: ${HOST:-0.0.0.0}"
 echo "=========================================="
 
