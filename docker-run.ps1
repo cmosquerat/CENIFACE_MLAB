@@ -60,8 +60,25 @@ if (-not (docker images --format '{{.Repository}}:{{.Tag}}' | Select-String -Pat
     Write-Host "[INFO] Imagen ya existe, omitiendo construcción" -ForegroundColor Green
 }
 
+# Detectar si se está usando MySQL con IP de red local
+$useHostNetwork = $false
+$dbHost = $null
+if (Test-Path ".env") {
+    $envContent = Get-Content ".env" -Raw
+    if ($envContent -match "DB_HOST\s*=\s*([^\r\n]+)") {
+        $dbHost = $matches[1].Trim().Trim('"').Trim("'")
+        # Verificar si es una IP privada (red local: 10.x.x.x, 192.168.x.x, 172.16-31.x.x)
+        if ($dbHost -match "^10\.|^192\.168\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.") {
+            Write-Host "[INFO] IP de red local detectada ($dbHost)" -ForegroundColor Yellow
+            Write-Host "[INFO] Docker Desktop en Windows debería permitir acceso a la red local por defecto" -ForegroundColor Yellow
+            Write-Host "[INFO] Si hay problemas de conectividad, verifica la configuración de red de Docker Desktop" -ForegroundColor Yellow
+        }
+    }
+}
+
 # Ejecutar contenedor
 Write-Host "[INFO] Iniciando contenedor con reinicio automático..." -ForegroundColor Green
+Write-Host "[INFO] Puerto externo: 5005 -> Puerto interno: 5000" -ForegroundColor Green
 
 docker run -d `
   --name $containerName `

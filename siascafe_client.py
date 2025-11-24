@@ -323,10 +323,10 @@ class SIASCAFEClient:
             self.driver.implicitly_wait(15)
             # Tiempo de carga de página más generoso (la app es pesada)
             try:
-                self.driver.set_page_load_timeout(120)  # Aumentado a 120 segundos
+                self.driver.set_page_load_timeout(140)  # Aumentado a 140 segundos (+20s)
                 # Timeout para scripts
-                self.driver.set_script_timeout(60)
-                logger.info("[SELENIUM] Timeouts configurados: implicit=15s, page_load=120s, script=60s")
+                self.driver.set_script_timeout(80)  # Aumentado a 80 segundos (+20s)
+                logger.info("[SELENIUM] Timeouts configurados: implicit=15s, page_load=140s, script=80s")
             except Exception as e:
                 logger.warning(f"[SELENIUM] No se pudo configurar timeouts: {e}")
             
@@ -398,7 +398,7 @@ class SIASCAFEClient:
             # En lugar de esperar un tiempo fijo, esperar explícitamente
             # a que el portlet React principal esté montado.
             logger.info("[SELENIUM] Esperando a que se monte el portlet principal...")
-            WebDriverWait(self.driver, 30).until(
+            WebDriverWait(self.driver, 50).until(  # Aumentado de 30 a 50 segundos (+20s)
                 EC.presence_of_element_located(
                     (By.CSS_SELECTOR, "div[id^='js-portlet-_pacanalisissuelosindividual_INSTANCE_']")
                 )
@@ -476,7 +476,7 @@ class SIASCAFEClient:
         """Llena el formulario de SIASCAFE con los datos"""
         logger.info("[SELENIUM] Buscando formulario en la página...")
         # Aumentar timeout porque la app es React/Liferay y tarda en montar
-        wait = WebDriverWait(self.driver, 30)
+        wait = WebDriverWait(self.driver, 50)  # Aumentado de 30 a 50 segundos (+20s)
         container = None
         
         try:
@@ -992,7 +992,7 @@ class SIASCAFEClient:
             logger.error(traceback.format_exc())
             raise
     
-    def _wait_for_pdf(self, timeout: int = 60) -> Optional[bytes]:
+    def _wait_for_pdf(self, timeout: int = 80) -> Optional[bytes]:  # Aumentado de 60 a 80 segundos (+20s)
         """Espera a que aparezca el botón 'Descargar PDF', hace clic y descarga el PDF"""
         try:
             logger.info("[SIASCAFE] Esperando a que aparezca el botón 'Descargar PDF'...")

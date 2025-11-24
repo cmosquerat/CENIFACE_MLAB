@@ -130,13 +130,20 @@ async function processAnalyses() {
     processBtn.textContent = 'Procesando...';
 
     try {
+        // Crear AbortController para timeout de 20 segundos adicionales
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 segundos adicionales
+        
         const response = await fetch('/api/process', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
 
         const result = await response.json();
 
@@ -182,7 +189,15 @@ function startStatusPolling(jobId) {
 
     statusInterval = setInterval(async () => {
         try {
-            const response = await fetch(`/api/status/${jobId}`);
+            // Timeout aumentado para peticiones de estado
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 segundos adicionales
+            
+            const response = await fetch(`/api/status/${jobId}`, {
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
             const status = await response.json();
 
             updateProgress(status);
@@ -275,8 +290,17 @@ function startLogsPolling() {
 }
 
 function fetchLogs() {
-    fetch(`/api/logs?since=${lastLogIndex}`)
-        .then(response => response.json())
+    // Timeout aumentado para peticiones de logs
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 segundos adicionales
+    
+    fetch(`/api/logs?since=${lastLogIndex}`, {
+        signal: controller.signal
+    })
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response.json();
+        })
         .then(data => {
             if (data.logs && data.logs.length > 0) {
                 appendLogs(data.logs);

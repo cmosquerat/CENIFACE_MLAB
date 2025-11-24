@@ -50,6 +50,17 @@ if (-not (docker images --format '{{.Repository}}:{{.Tag}}' | Select-String -Pat
     Write-Host "[INFO] Imagen ya existe, omitiendo construcción" -ForegroundColor Green
 }
 
+# Detectar si se está usando MySQL con IP de red local
+if (Test-Path ".env") {
+    $envContent = Get-Content ".env" -Raw
+    if ($envContent -match "DB_HOST\s*=\s*([^\r\n]+)") {
+        $dbHost = $matches[1].Trim().Trim('"').Trim("'")
+        if ($dbHost -match "^10\.|^192\.168\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.") {
+            Write-Host "[INFO] IP de red local detectada ($dbHost)" -ForegroundColor Yellow
+        }
+    }
+}
+
 # Ejecutar contenedor
 Write-Host "[INFO] Iniciando contenedor con reinicio automático..." -ForegroundColor Green
 

@@ -96,20 +96,50 @@ fi
 # Obtener ruta absoluta del directorio actual
 CURRENT_DIR=$(pwd)
 
+# Detectar si se está usando MySQL con IP de red local
+# Si DB_HOST está configurado y es una IP privada (10.x.x.x, 192.168.x.x, 172.16-31.x.x),
+# usar --network host para acceso directo a la red local
+USE_HOST_NETWORK=false
+if [ -f ".env" ]; then
+    DB_HOST=$(grep "^DB_HOST=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'" | xargs)
+    if [ -n "$DB_HOST" ]; then
+        # Verificar si es una IP privada (red local)
+        if [[ $DB_HOST =~ ^10\. ]] || [[ $DB_HOST =~ ^192\.168\. ]] || [[ $DB_HOST =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]]; then
+            USE_HOST_NETWORK=true
+            info "IP de red local detectada ($DB_HOST), usando --network host para acceso directo"
+        fi
+    fi
+fi
+
 # Ejecutar contenedor con reinicio automático
 info "Iniciando contenedor con reinicio automático..."
-info "Puerto externo: 5005 -> Puerto interno: 5000"
-
-docker run -d \
-  --name ${CONTAINER_NAME} \
-  --restart=unless-stopped \
-  -p 5005:5000 \
-  --env-file .env \
-  -v ${CURRENT_DIR}/multilab.db:/app/multilab.db:ro \
-  -v ${CURRENT_DIR}/static/pdfs:/app/static/pdfs \
-  --memory=2g \
-  --memory-swap=2g \
-  ${IMAGE_NAME}
+if [ "$USE_HOST_NETWORK" = true ]; then
+    info "Modo: --network host (acceso directo a red local)"
+    info "Puerto: 5000 (directo en el host)"
+    docker run -d \
+      --name ${CONTAINER_NAME} \
+      --restart=unless-stopped \
+      --network host \
+      --env-file .env \
+      -v ${CURRENT_DIR}/multilab.db:/app/multilab.db:ro \
+      -v ${CURRENT_DIR}/static/pdfs:/app/static/pdfs \
+      --memory=2g \
+      --memory-swap=2g \
+      ${IMAGE_NAME}
+else
+    info "Modo: red bridge (puerto mapeado)"
+    info "Puerto externo: 5005 -> Puerto interno: 5000"
+    docker run -d \
+      --name ${CONTAINER_NAME} \
+      --restart=unless-stopped \
+      -p 5005:5000 \
+      --env-file .env \
+      -v ${CURRENT_DIR}/multilab.db:/app/multilab.db:ro \
+      -v ${CURRENT_DIR}/static/pdfs:/app/static/pdfs \
+      --memory=2g \
+      --memory-swap=2g \
+      ${IMAGE_NAME}
+fi
 
 if [ $? -ne 0 ]; then
     error "Error al iniciar el contenedor."
@@ -157,8 +187,13 @@ info "Despliegue completado!"
 echo "=========================================="
 echo ""
 echo "La aplicación está disponible en:"
-echo "  - http://localhost:5005"
-echo "  - http://$(hostname -I | awk '{print $1}'):5005"
+if [ "$USE_HOST_NETWORK" = true ]; then
+    echo "  - http://localhost:5000"
+    echo "  - http://$(hostname -I | awk '{print $1}'):5000"
+else
+    echo "  - http://localhost:5005"
+    echo "  - http://$(hostname -I | awk '{print $1}'):5005"
+fi
 echo ""
 echo "El contenedor se reiniciará automáticamente:"
 echo "  - Si se detiene inesperadamente"
@@ -167,7 +202,11 @@ echo "  - Si Docker se reinicia"
 echo ""
 echo "Comandos útiles:"
 echo "  Ver logs:        docker logs -f ${CONTAINER_NAME}"
-echo "  Verificar salud: curl http://localhost:5005/health"
+if [ "$USE_HOST_NETWORK" = true ]; then
+    echo "  Verificar salud: curl http://localhost:5000/health"
+else
+    echo "  Verificar salud: curl http://localhost:5005/health"
+fi
 echo "  Detener:         docker stop ${CONTAINER_NAME}"
 echo "  Iniciar:         docker start ${CONTAINER_NAME}"
 echo "  Reiniciar:       docker restart ${CONTAINER_NAME}"

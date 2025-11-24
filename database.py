@@ -64,6 +64,22 @@ class DatabaseManager:
         """Establece conexión con MySQL"""
         try:
             logger.info(f"[DB] Intentando conectar a MySQL: {self.db_host}:{self.db_port}/{self.db_name}")
+            
+            # Verificar conectividad de red primero (solo para diagnóstico)
+            import socket
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(23)  # Aumentado de 3 a 23 segundos (+20s)
+                result = sock.connect_ex((self.db_host, self.db_port))
+                sock.close()
+                if result == 0:
+                    logger.info(f"[DB] ✓ Conectividad de red OK: {self.db_host}:{self.db_port} es alcanzable")
+                else:
+                    logger.warning(f"[DB] ⚠ No se puede alcanzar {self.db_host}:{self.db_port} - puede ser un problema de red/firewall")
+                    logger.warning(f"[DB] ⚠ En Docker, verifica que el contenedor tenga acceso a la red local")
+            except Exception as net_err:
+                logger.warning(f"[DB] ⚠ No se pudo verificar conectividad de red: {net_err}")
+            
             self.connection = mysql.connector.connect(
                 host=self.db_host,
                 port=self.db_port,
@@ -71,7 +87,8 @@ class DatabaseManager:
                 password=self.db_password,
                 database=self.db_name,
                 charset='utf8mb4',
-                collation='utf8mb4_unicode_ci'
+                collation='utf8mb4_unicode_ci',
+                connection_timeout=30  # Aumentado de 10 a 30 segundos (+20s)
             )
             if self.connection.is_connected():
                 db_info = self.connection.get_server_info()
@@ -82,10 +99,17 @@ class DatabaseManager:
                 return True
             return False
         except MySQLError as e:
-            logger.error(f"[DB] Error al conectar a MySQL: {e}")
-            logger.error(f"[DB] Host: {self.db_host}:{self.db_port}")
-            logger.error(f"[DB] Database: {self.db_name}")
-            logger.error(f"[DB] User: {self.db_user}")
+            logger.error(f"[DB] ✗ Error al conectar a MySQL: {e}")
+            logger.error(f"[DB]   Host: {self.db_host}:{self.db_port}")
+            logger.error(f"[DB]   Database: {self.db_name}")
+            logger.error(f"[DB]   User: {self.db_user}")
+            logger.error(f"[DB]   Posibles causas:")
+            logger.error(f"[DB]     1. El servidor MySQL no está accesible desde el contenedor")
+            logger.error(f"[DB]     2. Problema de red/firewall (IP de red local: {self.db_host})")
+            logger.error(f"[DB]     3. Credenciales incorrectas")
+            logger.error(f"[DB]     4. La base de datos '{self.db_name}' no existe")
+            if "10." in self.db_host or "192.168." in self.db_host:
+                logger.error(f"[DB]   NOTA: IP de red local detectada - verifica configuración de red de Docker")
             return False
     
     def _connect_sqlite(self):
