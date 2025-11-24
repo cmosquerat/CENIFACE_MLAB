@@ -25,6 +25,23 @@ echo "Chrome versión: $(google-chrome --version 2>/dev/null || echo 'N/A')"
 echo "Python versión: $(python3 --version 2>/dev/null || echo 'N/A')"
 echo "Puerto: ${PORT:-5000}"
 echo "Host: ${HOST:-0.0.0.0}"
+echo ""
+echo "=========================================="
+echo "Variables de entorno de Base de Datos:"
+echo "=========================================="
+if [ -n "$DB_HOST" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ] && [ -n "$DB_NAME" ]; then
+    echo "✓ Configuración MySQL detectada:"
+    echo "  DB_HOST: $DB_HOST"
+    echo "  DB_PORT: ${DB_PORT:-3306}"
+    echo "  DB_USER: $DB_USER"
+    echo "  DB_NAME: $DB_NAME"
+    echo "  DB_PASSWORD: [OCULTO]"
+    echo "  → Se usará conexión MySQL"
+else
+    echo "✓ Configuración SQLite detectada:"
+    echo "  DB_PATH: ${DB_PATH:-multilab.db}"
+    echo "  → Se usará conexión SQLite local"
+fi
 echo "=========================================="
 
 # Ejecutar la aplicación

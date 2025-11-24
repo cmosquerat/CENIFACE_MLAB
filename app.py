@@ -25,7 +25,22 @@ try:
     from database import DatabaseManager
     from data_mapper import DataMapper
     from siascafe_client import SIASCAFEClient
+    from config import DB_TYPE, USE_MYSQL, DB_HOST, DB_PORT, DB_NAME, DB_PATH
     MODULES_LOADED = True
+    
+    # Log inicial de configuración de base de datos
+    logger.info("=" * 60)
+    logger.info("[APP] Configuración de Base de Datos detectada:")
+    logger.info(f"[APP]   Tipo de BD: {DB_TYPE}")
+    if USE_MYSQL:
+        logger.info(f"[APP]   MySQL Host: {DB_HOST}:{DB_PORT}")
+        logger.info(f"[APP]   MySQL Database: {DB_NAME}")
+        logger.info(f"[APP]   MySQL User: {os.getenv('DB_USER', 'NO CONFIGURADO')}")
+        logger.info("[APP]   ✓ Usando conexión MySQL remota")
+    else:
+        logger.info(f"[APP]   SQLite Path: {DB_PATH}")
+        logger.info("[APP]   ✓ Usando conexión SQLite local")
+    logger.info("=" * 60)
 except ImportError as e:
     logger.warning(f"Algunos módulos no se pudieron cargar: {e}")
     MODULES_LOADED = False
@@ -121,7 +136,9 @@ def process_single_analysis(codigo_lab: int, etapa: str, edad: int, densidad: in
         etapa_code = parse_etapa(etapa)
         
         # Conectar a BD
+        logger.info(f"[APP] Inicializando DatabaseManager - Tipo de BD: {DB_TYPE}")
         db = DatabaseManager()
+        logger.info(f"[APP] Intentando conectar a {DB_TYPE}...")
         if not db.connect():
             jobs[job_id]['results'].append({
                 'codigo_lab': codigo_lab,
