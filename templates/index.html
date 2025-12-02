@@ -49,6 +49,7 @@
                     <div class="table-header">
                         <h3>Datos de Análisis</h3>
                         <button type="button" class="btn btn-secondary" id="addRow">+ Agregar Fila</button>
+                        <button type="button" class="btn btn-secondary" id="pasteExcelBtn">Pegar desde Excel</button>
                         <button type="button" class="btn btn-secondary" id="clearTable">Limpiar Tabla</button>
                     </div>
                     <table id="analysesTable" class="editable-table">
@@ -117,6 +118,25 @@
             <p>&copy; 2025 Multilab Agroanalítica. Todos los derechos reservados.</p>
         </div>
     </footer>
+
+    <!-- Modal para pegar Excel -->
+    <div id="pasteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pegar Datos desde Excel</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Copie sus datos desde Excel y péguelos aquí. El formato esperado es: <br>
+                <code>No. Lab | ETAPA | EDAD M | DENSIDAD | SOMBRIO</code></p>
+                <textarea id="excelPasteArea" rows="10" class="form-control" placeholder="10766	CRECIMIENTO	0	4444	0"></textarea>
+                <div class="modal-actions" style="margin-top: 1rem; text-align: right;">
+                    <button type="button" class="btn btn-secondary" id="cancelPasteBtn">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="importExcelBtn">Importar Datos</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>

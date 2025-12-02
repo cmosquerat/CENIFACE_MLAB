@@ -138,66 +138,72 @@ class SIASCAFEClient:
         logger.info(f"[SELENIUM] Registrado nuevo XPath para '{field_name}': {xpath}")
     
     def _setup_driver(self):
-        """Configura el driver de Chrome para Linux headless"""
+        """Configura el driver de Chrome de manera dinámica (Docker/Linux vs Windows)"""
         try:
+            import platform
+            current_os = platform.system()
+            logger.info(f"[SELENIUM] Detectado sistema operativo: {current_os}")
+
             logger.info("[SELENIUM] Iniciando configuración de Chrome...")
             chrome_options = Options()
             
+            # Directorio de descargas dinámico
+            if current_os == 'Windows':
+                # En Windows, usar ruta absoluta local
+                base_dir = os.getcwd()
+                download_dir = os.path.join(base_dir, 'static', 'pdfs')
+            else:
+                # En Linux/Docker, usar /tmp o lo configurado
+                download_dir = os.getenv('PDF_STORAGE_DIR', '/tmp/siascafe_pdfs')
+            
+            download_dir = os.path.abspath(download_dir)
+            os.makedirs(download_dir, exist_ok=True)
+            logger.info(f"[SELENIUM] Directorio de descarga configurado: {download_dir}")
+
             if self.headless:
                 logger.info("[SELENIUM] Modo headless activado")
                 chrome_options.add_argument('--headless=new')
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
                 chrome_options.add_argument('--disable-gpu')
-                # Opciones adicionales para servidores sin entorno gráfico
                 chrome_options.add_argument('--disable-software-rasterizer')
-                # --single-process puede causar problemas en Windows, solo usarlo en Linux
-                import platform
-                if platform.system() == 'Linux':
+                
+                if current_os == 'Linux':
                     chrome_options.add_argument('--disable-setuid-sandbox')
-                    # NO usar --single-process ya que puede causar que Chrome se cierre inesperadamente
-                    # chrome_options.add_argument('--single-process')
+                
                 chrome_options.add_argument('--disable-background-networking')
                 chrome_options.add_argument('--disable-background-timer-throttling')
                 chrome_options.add_argument('--disable-renderer-backgrounding')
                 chrome_options.add_argument('--disable-backgrounding-occluded-windows')
-                # Opciones adicionales para estabilidad
                 chrome_options.add_argument('--disable-crash-reporter')
                 chrome_options.add_argument('--disable-logging')
-                chrome_options.add_argument('--log-level=3')  # Solo errores críticos
-                chrome_options.add_argument('--disable-features=TranslateUI')
-                chrome_options.add_argument('--disable-ipc-flooding-protection')
-                chrome_options.add_argument('--disable-hang-monitor')
-                chrome_options.add_argument('--disable-prompt-on-repost')
-                chrome_options.add_argument('--disable-domain-reliability')
-                chrome_options.add_argument('--disable-component-update')
-                chrome_options.add_argument('--disable-sync')
-                chrome_options.add_argument('--disable-default-apps')
-                chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-                # Aumentar límites de memoria para evitar cierres
+                chrome_options.add_argument('--log-level=3')
+                
+                # Memory tweaks
                 chrome_options.add_argument('--max_old_space_size=4096')
                 chrome_options.add_argument('--js-flags=--max-old-space-size=4096')
             else:
                 logger.info("[SELENIUM] Modo con ventana visible")
             
-            # Opciones para Linux sin desktop
+            # Opciones generales
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
             chrome_options.add_argument('--disable-extensions')
             chrome_options.add_argument('--window-size=1920,1080')
-            # User-Agent completo de Chrome para que Liferay lo detecte como navegador real
-            chrome_options.add_argument(
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/142.0.0.0 Safari/537.36'
-            )
-            logger.info("[SELENIUM] User-Agent configurado como Chrome real")
             
-            logger.info("[SELENIUM] Configurando preferencias de descarga...")
-            # Preferencias para descargar PDFs
-            download_dir = os.path.abspath("/tmp/siascafe_pdfs")
-            os.makedirs(download_dir, exist_ok=True)
-            logger.info(f"[SELENIUM] Directorio de descarga: {download_dir}")
-            
+            # User Agent
+            if current_os == 'Windows':
+                 chrome_options.add_argument(
+                    '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/122.0.0.0 Safari/537.36'
+                )
+            else:
+                chrome_options.add_argument(
+                    '--user-agent=Mozilla/5.0 (X11; Linux x86_64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/122.0.0.0 Safari/537.36'
+                )
+
             prefs = {
                 "download.default_directory": download_dir,
                 "download.prompt_for_download": False,
@@ -206,143 +212,104 @@ class SIASCAFEClient:
             }
             chrome_options.add_experimental_option("prefs", prefs)
             
-            # Configurar ChromeDriver: primero intentar usar el del sistema, luego webdriver-manager
+            # Configurar ChromeDriver
             logger.info("[SELENIUM] Configurando ChromeDriver...")
             chromedriver_path = None
             
-            # Intentar usar ChromeDriver del sistema (instalado en Dockerfile)
-            system_chromedriver_paths = [
-                '/usr/local/bin/chromedriver',
-                '/usr/bin/chromedriver',
-                'chromedriver'  # En PATH
-            ]
-            
-            for path in system_chromedriver_paths:
-                if os.path.exists(path) or path == 'chromedriver':
-                    try:
-                        # Verificar que es ejecutable
-                        if path != 'chromedriver':
-                            if os.access(path, os.X_OK):
-                                chromedriver_path = path
-                                logger.info(f"[SELENIUM] Usando ChromeDriver del sistema: {path}")
-                                break
-                        else:
-                            # Verificar que chromedriver está en PATH
-                            import shutil
-                            chromedriver_bin = shutil.which('chromedriver')
-                            if chromedriver_bin:
-                                chromedriver_path = chromedriver_bin
-                                logger.info(f"[SELENIUM] Usando ChromeDriver del PATH: {chromedriver_bin}")
-                                break
-                    except Exception as e:
-                        logger.debug(f"[SELENIUM] No se pudo usar {path}: {e}")
+            # 1. Intentar buscar en PATH o ubicaciones comunes
+            system_paths = []
+            if current_os == 'Windows':
+                system_paths = ['chromedriver.exe', 'chromedriver']
+            else:
+                system_paths = ['/usr/local/bin/chromedriver', '/usr/bin/chromedriver', 'chromedriver']
+
+            import shutil
+            for path in system_paths:
+                if shutil.which(path) or os.path.exists(path):
+                    full_path = shutil.which(path) or os.path.abspath(path)
+                    # Verificar si es realmente un ejecutable (en Linux)
+                    if current_os == 'Linux' and not os.access(full_path, os.X_OK):
                         continue
+                    chromedriver_path = full_path
+                    logger.info(f"[SELENIUM] Usando ChromeDriver del sistema: {chromedriver_path}")
+                    break
             
-            # Si no se encontró ChromeDriver del sistema, usar webdriver-manager
+            # 2. Si no se encuentra, usar webdriver_manager
             if not chromedriver_path:
-                logger.info("[SELENIUM] ChromeDriver del sistema no encontrado, usando webdriver-manager...")
+                logger.info("[SELENIUM] ChromeDriver local no encontrado, usando webdriver-manager...")
                 try:
-                    downloaded_path = ChromeDriverManager().install()
-                    logger.info(f"[SELENIUM] webdriver-manager devolvió: {downloaded_path}")
+                    installed_path = ChromeDriverManager().install()
+                    logger.info(f"[SELENIUM] webdriver-manager devolvió: {installed_path}")
                     
-                    # webdriver-manager puede devolver un directorio o un archivo
-                    if os.path.isdir(downloaded_path):
-                        # Buscar el ejecutable chromedriver en el directorio
-                        # Buscar primero en el directorio raíz
-                        potential_paths = [
-                            os.path.join(downloaded_path, 'chromedriver'),
-                            os.path.join(downloaded_path, 'chromedriver-linux64', 'chromedriver'),
-                        ]
-                        
-                        # También buscar recursivamente
-                        for root, dirs, files in os.walk(downloaded_path):
-                            for file in files:
-                                # Solo archivos llamados exactamente 'chromedriver' (sin extensión)
-                                # Ignorar archivos como THIRD_PARTY_NOTICES.chromedriver
-                                if file == 'chromedriver' and '.' not in file:
-                                    potential_path = os.path.join(root, file)
-                                    # Verificar que es un archivo regular (no un directorio)
-                                    if os.path.isfile(potential_path):
-                                        # Ignorar si contiene THIRD_PARTY o NOTICES en el path
-                                        if 'THIRD_PARTY' not in potential_path and 'NOTICES' not in potential_path:
-                                            potential_paths.append(potential_path)
-                        
-                        # Probar cada path potencial
-                        for path in potential_paths:
-                            if os.path.exists(path) and os.path.isfile(path):
-                                try:
-                                    # Hacer ejecutable si no lo es
-                                    if not os.access(path, os.X_OK):
-                                        os.chmod(path, 0o755)
-                                    # Verificar que ahora es ejecutable
-                                    if os.access(path, os.X_OK):
-                                        chromedriver_path = path
-                                        logger.info(f"[SELENIUM] ChromeDriver ejecutable encontrado en: {chromedriver_path}")
-                                        break
-                                except Exception as e:
-                                    logger.debug(f"[SELENIUM] No se pudo hacer ejecutable {path}: {e}")
-                                    continue
-                        
-                        if not chromedriver_path:
-                            raise Exception(f"No se encontró ejecutable chromedriver en {downloaded_path}. Archivos encontrados: {os.listdir(downloaded_path) if os.path.exists(downloaded_path) else 'N/A'}")
+                    # Lógica robusta para encontrar el ejecutable real
+                    # A veces devuelve un archivo .xml, .json o THIRD_PARTY...
+                    
+                    candidate = installed_path
+                    found_executable = False
+                    
+                    # Si es directorio, buscar dentro
+                    if os.path.isdir(candidate):
+                        search_dir = candidate
                     else:
-                        # Es un archivo, verificar que sea el ejecutable correcto
-                        if os.path.exists(downloaded_path) and os.path.isfile(downloaded_path):
-                            # Verificar que no sea un archivo de documentación o texto
-                            if 'THIRD_PARTY' in downloaded_path or 'NOTICES' in downloaded_path or downloaded_path.endswith('.txt') or downloaded_path.endswith('.md'):
-                                raise Exception(f"webdriver-manager devolvió un archivo incorrecto (documentación): {downloaded_path}")
-                            
-                            # Intentar hacer ejecutable si no lo es
-                            if not os.access(downloaded_path, os.X_OK):
-                                os.chmod(downloaded_path, 0o755)
-                            
-                            chromedriver_path = downloaded_path
-                            logger.info(f"[SELENIUM] ChromeDriver descargado: {chromedriver_path}")
+                        # Si es archivo, ver si es el ejecutable o algo incorrecto
+                        filename = os.path.basename(candidate).lower()
+                        is_executable = (
+                            (current_os == 'Windows' and filename.endswith('.exe')) or 
+                            (current_os != 'Windows' and '.' not in filename)
+                        )
+                        is_junk = 'third_party' in filename or 'notices' in filename or filename.endswith('.txt')
+                        
+                        if is_executable and not is_junk:
+                            chromedriver_path = candidate
+                            found_executable = True
                         else:
-                            raise Exception(f"ChromeDriver descargado no es un archivo válido: {downloaded_path}")
+                            # Es un archivo incorrecto, buscar en su directorio padre
+                            search_dir = os.path.dirname(candidate)
+                    
+                    if not found_executable:
+                        logger.info(f"[SELENIUM] Buscando ejecutable real en: {search_dir}")
+                        target_name = 'chromedriver.exe' if current_os == 'Windows' else 'chromedriver'
+                        
+                        # Búsqueda recursiva
+                        for root, dirs, files in os.walk(search_dir):
+                            for file in files:
+                                if file.lower() == target_name.lower():
+                                    full_p = os.path.join(root, file)
+                                    # Doble chequeo de "junk"
+                                    if 'third_party' in full_p.lower(): 
+                                        continue
+                                    
+                                    chromedriver_path = full_p
+                                    found_executable = True
+                                    break
+                            if found_executable: break
                             
+                    if not chromedriver_path:
+                        raise Exception(f"No se pudo encontrar {target_name} en {search_dir}")
+
+                    if current_os != 'Windows':
+                        os.chmod(chromedriver_path, 0o755)
+                        
+                    logger.info(f"[SELENIUM] ChromeDriver resuelto: {chromedriver_path}")
+
                 except Exception as e:
-                    logger.error(f"[SELENIUM] Error al configurar ChromeDriver con webdriver-manager: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+                    logger.error(f"[SELENIUM] Error con webdriver-manager: {e}")
                     raise
-            
-            # Crear servicio con el path correcto
-            try:
-                service = Service(chromedriver_path)
-                logger.info(f"[SELENIUM] ChromeDriver configurado correctamente: {chromedriver_path}")
-            except Exception as e:
-                logger.error(f"[SELENIUM] Error al crear servicio ChromeDriver: {e}")
-                raise
-            
-            logger.info("[SELENIUM] Inicializando driver de Chrome...")
+
+            # Crear servicio
+            service = Service(chromedriver_path)
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("[SELENIUM] [OK] Driver de Chrome inicializado exitosamente")
+            logger.info("[SELENIUM] [OK] Driver inicializado")
             
-            # Configurar timeouts más generosos para evitar desconexiones
+            # Timeouts
             self.driver.implicitly_wait(15)
-            # Tiempo de carga de página más generoso (la app es pesada)
-            try:
-                self.driver.set_page_load_timeout(140)  # Aumentado a 140 segundos (+20s)
-                # Timeout para scripts
-                self.driver.set_script_timeout(80)  # Aumentado a 80 segundos (+20s)
-                logger.info("[SELENIUM] Timeouts configurados: implicit=15s, page_load=140s, script=80s")
-            except Exception as e:
-                logger.warning(f"[SELENIUM] No se pudo configurar timeouts: {e}")
-            
-            # Verificar que la sesión está activa
-            try:
-                self.driver.current_url
-                logger.info("[SELENIUM] Sesión de Chrome verificada y activa")
-            except Exception as e:
-                logger.warning(f"[SELENIUM] Advertencia al verificar sesión inicial: {e}")
-            
+            self.driver.set_page_load_timeout(140)
+            self.driver.set_script_timeout(80)
+
         except Exception as e:
-            logger.error(f"[SELENIUM] [ERROR] No se pudo inicializar Chrome: {e}")
+            logger.error(f"[SELENIUM] [ERROR] Fallo crítico al inicializar: {e}")
             import traceback
-            logger.error(f"[SELENIUM] Traceback:\n{traceback.format_exc()}")
-            logger.error("[SELENIUM] Asegúrate de tener Chrome instalado")
-            logger.error("[SELENIUM] En Linux: sudo apt-get install google-chrome-stable")
+            logger.error(traceback.format_exc())
             raise
     
     def _check_session(self) -> bool:
@@ -364,13 +331,39 @@ class SIASCAFEClient:
                 logger.warning(f"[SELENIUM] Sesión perdida o inválida: {error_type}: {error_msg[:100]}")
             return False
     
-    def generate_pdf(self, form_data: Dict, user_data: Dict) -> Optional[bytes]:
+    def reset_form(self):
+        """Hace clic en el botón 'LIMPIAR DATOS' para reiniciar el formulario"""
+        logger.info("[SIASCAFE] Intentando limpiar el formulario (botón 'LIMPIAR DATOS')...")
+        try:
+            wait = WebDriverWait(self.driver, 10)
+            # Buscar botón que contenga "LIMPIAR DATOS"
+            reset_btn = wait.until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'LIMPIAR DATOS')]"))
+            )
+            
+            # Asegurar visibilidad
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", reset_btn)
+            time.sleep(0.5)
+            
+            # Clic
+            self.driver.execute_script("arguments[0].click();", reset_btn)
+            logger.info("[SIASCAFE] [OK] Clic en 'LIMPIAR DATOS' realizado")
+            
+            # Esperar un momento a que se limpie/recargue
+            time.sleep(2)
+            return True
+        except Exception as e:
+            logger.warning(f"[SIASCAFE] No se pudo limpiar el formulario: {e}")
+            return False
+
+    def generate_pdf(self, form_data: Dict, user_data: Dict, navigate: bool = True) -> Optional[bytes]:
         """
         Genera un PDF usando Selenium para llenar el formulario y descargarlo
         
         Args:
             form_data: Datos del formulario (mapeados desde BD)
             user_data: Datos del usuario (etapa, edad, densidad, sombrío)
+            navigate: Si True, navega a la URL. Si False, asume que ya está ahí.
         
         Returns:
             bytes del PDF o None si hay error
@@ -383,17 +376,20 @@ class SIASCAFEClient:
         logger.info(f"[SIASCAFE] Etapa: {user_data.get('etapa', 'N/A')}")
         
         try:
-            # Navegar a SIASCAFE
-            logger.info(f"[SELENIUM] Navegando a {SIASCAFE_URL}...")
-            start_time = time.time()
-            try:
-                # Con pageLoadStrategy=none, no debería bloquearse, pero por si acaso:
-                self.driver.get(SIASCAFE_URL)
-            except TimeoutException as e:
-                # Ignorar timeout de carga completa y continuar con lo que ya se haya renderizado
-                logger.warning(f"[SELENIUM] Timeout durante la carga de la página (se continúa de todas formas): {e}")
-            load_time = time.time() - start_time
-            logger.info(f"[SELENIUM] Llamada a get() completada en {load_time:.2f} segundos")
+            if navigate:
+                # Navegar a SIASCAFE
+                logger.info(f"[SELENIUM] Navegando a {SIASCAFE_URL}...")
+                start_time = time.time()
+                try:
+                    # Con pageLoadStrategy=none, no debería bloquearse, pero por si acaso:
+                    self.driver.get(SIASCAFE_URL)
+                except TimeoutException as e:
+                    # Ignorar timeout de carga completa y continuar con lo que ya se haya renderizado
+                    logger.warning(f"[SELENIUM] Timeout durante la carga de la página (se continúa de todas formas): {e}")
+                load_time = time.time() - start_time
+                logger.info(f"[SELENIUM] Llamada a get() completada en {load_time:.2f} segundos")
+            else:
+                logger.info("[SELENIUM] Saltando navegación (navigate=False)")
             
             # En lugar de esperar un tiempo fijo, esperar explícitamente
             # a que el portlet React principal esté montado.
@@ -995,6 +991,19 @@ class SIASCAFEClient:
     def _wait_for_pdf(self, timeout: int = 80) -> Optional[bytes]:  # Aumentado de 60 a 80 segundos (+20s)
         """Espera a que aparezca el botón 'Descargar PDF', hace clic y descarga el PDF"""
         try:
+            import platform
+            current_os = platform.system()
+            
+            # Determinar directorio de descargas según SO
+            if current_os == 'Windows':
+                base_dir = os.getcwd()
+                download_dir = os.path.join(base_dir, 'static', 'pdfs')
+            else:
+                download_dir = os.getenv('PDF_STORAGE_DIR', '/tmp/siascafe_pdfs')
+            
+            download_dir = os.path.abspath(download_dir)
+            logger.info(f"[SIASCAFE] Buscando PDF en: {download_dir}")
+
             logger.info("[SIASCAFE] Esperando a que aparezca el botón 'Descargar PDF'...")
             wait = WebDriverWait(self.driver, timeout)
             
@@ -1044,7 +1053,7 @@ class SIASCAFEClient:
                 download_button.click()
             
             # Esperar a que el PDF se descargue en el directorio de descargas
-            download_dir = "/tmp/siascafe_pdfs"
+            # download_dir ya se definió arriba
             os.makedirs(download_dir, exist_ok=True)
             
             logger.info(f"[SIASCAFE] Esperando descarga del PDF en {download_dir} (hasta {timeout} segundos)...")

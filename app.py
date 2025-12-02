@@ -122,93 +122,12 @@ def parse_etapa(raw):
     return mapa.get(txt, int(raw) if str(raw).isdigit() else 0)
 
 
-def process_single_analysis(codigo_lab: int, etapa: str, edad: int, densidad: int, sombrio: int, year: int, job_id: str):
-    """Procesa un análisis individual"""
-    if not MODULES_LOADED:
-        jobs[job_id]['results'].append({
-            'codigo_lab': codigo_lab,
-            'status': 'error',
-            'message': 'Módulos no cargados correctamente'
-        })
-        return
-    try:
-        # Parsear etapa
-        etapa_code = parse_etapa(etapa)
-        
-        # Conectar a BD
-        logger.info(f"[APP] Inicializando DatabaseManager - Tipo de BD: {DB_TYPE}")
-        db = DatabaseManager()
-        logger.info(f"[APP] Intentando conectar a {DB_TYPE}...")
-        if not db.connect():
-            jobs[job_id]['results'].append({
-                'codigo_lab': codigo_lab,
-                'status': 'error',
-                'message': 'Error al conectar a la base de datos'
-            })
-            return
-        
-        try:
-            # Buscar muestra
-            db_data = db.find_muestra_by_codigo(codigo_lab, year=year)
-            if not db_data:
-                jobs[job_id]['results'].append({
-                    'codigo_lab': codigo_lab,
-                    'status': 'error',
-                    'message': f'No se encontró muestra con código {codigo_lab}'
-                })
-                return
-            
-            # Validar y mapear datos
-            user_data = {
-                'etapa': etapa_code,
-                'edad': edad,
-                'densidad': densidad,
-                'sombrío': sombrio
-            }
-            validated_user = DataMapper.validate_user_data(user_data)
-            siascafe_data = DataMapper.map_to_siascafe_format(db_data, validated_user)
-            
-            # Generar PDF con Selenium (headless)
-            client = SIASCAFEClient(headless=True, keep_browser_open=False)
-            pdf_bytes = client.generate_pdf(siascafe_data, validated_user)
-            
-            if not pdf_bytes:
-                jobs[job_id]['results'].append({
-                    'codigo_lab': codigo_lab,
-                    'status': 'error',
-                    'message': 'No se pudo generar el PDF'
-                })
-                return
-            
-            # Guardar PDF
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"resultado_{codigo_lab}_{timestamp}.pdf"
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            
-            with open(filepath, 'wb') as f:
-                f.write(pdf_bytes)
-            
-            jobs[job_id]['results'].append({
-                'codigo_lab': codigo_lab,
-                'status': 'success',
-                'filename': filename,
-                'message': 'PDF generado correctamente'
-            })
-            
-        finally:
-            db.disconnect()
-            
-    except Exception as e:
-        logger.error(f"Error procesando análisis {codigo_lab}: {e}")
-        jobs[job_id]['results'].append({
-            'codigo_lab': codigo_lab,
-            'status': 'error',
-            'message': str(e)
-        })
+# Función process_single_analysis eliminada porque se integró en process_bulk_analysis para optimización
+# def process_single_analysis(...): ...
 
 
 def process_bulk_analysis(data: List[Dict], year: int, job_id: str):
-    """Procesa múltiples análisis en paralelo"""
+    """Procesa múltiples análisis en paralelo usando un solo navegador optimizado"""
     jobs[job_id] = {
         'status': 'processing',
         'total': len(data),
@@ -217,19 +136,121 @@ def process_bulk_analysis(data: List[Dict], year: int, job_id: str):
     }
     
     def process_all():
-        for row in data:
-            process_single_analysis(
-                codigo_lab=int(row['codigo_lab']),
-                etapa=row['etapa'],
-                edad=int(row['edad']),
-                densidad=int(row['densidad']),
-                sombrio=int(row['sombrio']),
-                year=year,
-                job_id=job_id
-            )
-            jobs[job_id]['completed'] += 1
-        
-        jobs[job_id]['status'] = 'completed'
+        # Inicializar cliente Selenium UNA VEZ fuera del bucle
+        client = None
+        try:
+            if MODULES_LOADED:
+                logger.info(f"[JOB {job_id}] Iniciando navegador optimizado para {len(data)} análisis...")
+                client = SIASCAFEClient(headless=True, keep_browser_open=False)
+            else:
+                logger.error("No se puede iniciar navegador: Módulos no cargados")
+                # Marcar todos como error
+                for row in data:
+                    jobs[job_id]['results'].append({
+                        'codigo_lab': row['codigo_lab'],
+                        'status': 'error',
+                        'message': 'Módulos no cargados'
+                    })
+                    jobs[job_id]['completed'] += 1
+                jobs[job_id]['status'] = 'completed'
+                return
+
+            first_run = True
+            
+            # Conectar a DB una vez para todo el lote (opcional, o por item)
+            # Aquí lo hacemos por item para mantener la lógica original de 'process_single_analysis' 
+            # pero adaptada para usar el cliente existente.
+            
+            for row in data:
+                codigo_lab = int(row['codigo_lab'])
+                try:
+                    # Lógica de negocio (DB, Mapping)
+                    # -------------------------------------------------
+                    etapa_code = parse_etapa(row['etapa'])
+                    edad = int(row['edad'])
+                    densidad = int(row['densidad'])
+                    sombrio = int(row['sombrio'])
+                    
+                    db = DatabaseManager()
+                    if not db.connect():
+                        raise Exception('Error al conectar a la base de datos')
+                    
+                    try:
+                        db_data = db.find_muestra_by_codigo(codigo_lab, year=year)
+                        if not db_data:
+                            raise Exception(f'No se encontró muestra con código {codigo_lab}')
+                        
+                        user_data = {
+                            'etapa': etapa_code,
+                            'edad': edad,
+                            'densidad': densidad,
+                            'sombrío': sombrio
+                        }
+                        validated_user = DataMapper.validate_user_data(user_data)
+                        siascafe_data = DataMapper.map_to_siascafe_format(db_data, validated_user)
+                        
+                    finally:
+                        db.disconnect()
+                    
+                    # Generación de PDF con cliente reutilizado
+                    # -------------------------------------------------
+                    navigate = False
+                    if first_run:
+                        navigate = True
+                        first_run = False
+                    else:
+                        # Intentar limpiar formulario. Si falla, forzar navegación
+                        if not client.reset_form():
+                            logger.warning(f"[JOB {job_id}] No se pudo limpiar formulario, recargando página...")
+                            navigate = True
+                    
+                    pdf_bytes = client.generate_pdf(siascafe_data, validated_user, navigate=navigate)
+                    
+                    if not pdf_bytes:
+                        # Si falló y no estábamos navegando, tal vez la sesión expiró.
+                        # Forzamos navegación para el siguiente intento
+                        first_run = True
+                        raise Exception('No se pudo generar el PDF')
+                    
+                    # Guardar PDF
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"resultado_{codigo_lab}_{timestamp}.pdf"
+                    filepath = os.path.join(UPLOAD_FOLDER, filename)
+                    
+                    with open(filepath, 'wb') as f:
+                        f.write(pdf_bytes)
+                    
+                    jobs[job_id]['results'].append({
+                        'codigo_lab': codigo_lab,
+                        'status': 'success',
+                        'filename': filename,
+                        'message': 'PDF generado correctamente'
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"[JOB {job_id}] Error procesando {codigo_lab}: {e}")
+                    jobs[job_id]['results'].append({
+                        'codigo_lab': codigo_lab,
+                        'status': 'error',
+                        'message': str(e)
+                    })
+                    # Si hubo error, aseguramos reiniciar navegación en el siguiente para limpiar estado
+                    first_run = True
+                
+                finally:
+                    jobs[job_id]['completed'] += 1
+            
+        except Exception as e:
+            logger.error(f"[JOB {job_id}] Error fatal en el worker: {e}")
+        finally:
+            if client:
+                try:
+                    # Cerrar navegador al terminar todo el lote
+                    client.driver.quit()
+                    logger.info(f"[JOB {job_id}] Navegador cerrado correctamente")
+                except:
+                    pass
+            jobs[job_id]['status'] = 'completed'
     
     # Ejecutar en thread separado
     thread = threading.Thread(target=process_all)

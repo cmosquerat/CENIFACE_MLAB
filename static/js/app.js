@@ -17,12 +17,30 @@ document.addEventListener('DOMContentLoaded', function() {
         const clearLogsBtn = document.getElementById('clearLogsBtn');
         const toggleTerminalBtn = document.getElementById('toggleTerminalBtn');
         
-        if (addRowBtn) addRowBtn.addEventListener('click', addRow);
+        // Modal elements
+        const pasteExcelBtn = document.getElementById('pasteExcelBtn');
+        const pasteModal = document.getElementById('pasteModal');
+        const closePasteModalBtn = document.querySelector('.close-modal');
+        const cancelPasteBtn = document.getElementById('cancelPasteBtn');
+        const importExcelBtn = document.getElementById('importExcelBtn');
+        
+        if (addRowBtn) addRowBtn.addEventListener('click', () => addRow());
         if (clearTableBtn) clearTableBtn.addEventListener('click', clearTable);
         if (processBtn) processBtn.addEventListener('click', processAnalyses);
         if (downloadAllBtn) downloadAllBtn.addEventListener('click', downloadAll);
         if (clearLogsBtn) clearLogsBtn.addEventListener('click', clearLogs);
         if (toggleTerminalBtn) toggleTerminalBtn.addEventListener('click', toggleTerminal);
+        
+        // Modal listeners
+        if (pasteExcelBtn) pasteExcelBtn.addEventListener('click', openPasteModal);
+        if (closePasteModalBtn) closePasteModalBtn.addEventListener('click', closePasteModal);
+        if (cancelPasteBtn) cancelPasteBtn.addEventListener('click', closePasteModal);
+        if (importExcelBtn) importExcelBtn.addEventListener('click', importExcelData);
+        if (pasteModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === pasteModal) closePasteModal();
+            });
+        }
         
         // Iniciar polling de logs
         startLogsPolling();
@@ -34,22 +52,32 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Agregar fila a la tabla
-function addRow() {
+function addRow(data = null) {
     const tbody = document.getElementById('tableBody');
     const newRow = document.createElement('tr');
+    
+    const codigo_lab = data ? data.codigo_lab : '';
+    const etapa = data ? data.etapa : '';
+    const edad = data ? data.edad : '';
+    const densidad = data ? data.densidad : '';
+    const sombrio = data ? data.sombrio : '';
+
+    // Helper para seleccionar opción
+    const isSelected = (val, option) => val === option ? 'selected' : '';
+
     newRow.innerHTML = `
-        <td><input type="number" class="table-input" data-field="codigo_lab" placeholder="Ej: 10766" min="1"></td>
+        <td><input type="number" class="table-input" data-field="codigo_lab" placeholder="Ej: 10766" min="1" value="${codigo_lab}"></td>
         <td>
             <select class="table-input" data-field="etapa">
                 <option value="">Seleccione</option>
-                <option value="CRECIMIENTO">CRECIMIENTO</option>
-                <option value="ZOCA">ZOCA</option>
-                <option value="PRODUCCION">PRODUCCION</option>
+                <option value="CRECIMIENTO" ${isSelected(etapa, 'CRECIMIENTO')}>CRECIMIENTO</option>
+                <option value="ZOCA" ${isSelected(etapa, 'ZOCA')}>ZOCA</option>
+                <option value="PRODUCCION" ${isSelected(etapa, 'PRODUCCION')}>PRODUCCION</option>
             </select>
         </td>
-        <td><input type="number" class="table-input" data-field="edad" placeholder="0" min="0" max="1200"></td>
-        <td><input type="number" class="table-input" data-field="densidad" placeholder="4444" min="2000" max="20000"></td>
-        <td><input type="number" class="table-input" data-field="sombrio" placeholder="0" min="0" max="100"></td>
+        <td><input type="number" class="table-input" data-field="edad" placeholder="0" min="0" max="1200" value="${edad}"></td>
+        <td><input type="number" class="table-input" data-field="densidad" placeholder="4444" min="2000" max="20000" value="${densidad}"></td>
+        <td><input type="number" class="table-input" data-field="sombrio" placeholder="0" min="0" max="100" value="${sombrio}"></td>
         <td><button type="button" class="btn-remove" onclick="removeRow(this)">×</button></td>
     `;
     tbody.appendChild(newRow);
@@ -380,6 +408,82 @@ function toggleTerminal() {
         terminalContainer.classList.remove('terminal-minimized');
         toggleBtn.textContent = 'Minimizar';
         scrollTerminalToBottom();
+    }
+}
+
+// Funciones para el modal de Excel
+function openPasteModal() {
+    const modal = document.getElementById('pasteModal');
+    if (modal) {
+        modal.style.display = 'block';
+        document.getElementById('excelPasteArea').value = '';
+        document.getElementById('excelPasteArea').focus();
+    }
+}
+
+function closePasteModal() {
+    const modal = document.getElementById('pasteModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function importExcelData() {
+    const text = document.getElementById('excelPasteArea').value;
+    if (!text.trim()) {
+        alert('Por favor pegue los datos primero');
+        return;
+    }
+
+    const lines = text.split(/\r?\n/);
+    let importedCount = 0;
+    const tbody = document.getElementById('tableBody');
+    
+    // Si la tabla tiene solo una fila vacía, limpiarla
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length === 1) {
+        const firstRowInputs = rows[0].querySelectorAll('input');
+        let isEmpty = true;
+        firstRowInputs.forEach(input => {
+            if (input.value) isEmpty = false;
+        });
+        if (isEmpty) tbody.innerHTML = '';
+    }
+
+    lines.forEach(line => {
+        if (!line.trim()) return;
+        
+        const columns = line.split('\t');
+        
+        // Verificar si es una línea de encabezado (si la primera columna no es número)
+        if (isNaN(parseInt(columns[0]))) {
+            return; // Saltar encabezado
+        }
+
+        // Esperamos al menos 5 columnas: No. Lab, ETAPA, EDAD, DENSIDAD, SOMBRIO
+        if (columns.length >= 5) {
+            const data = {
+                codigo_lab: columns[0].trim(),
+                etapa: columns[1].trim().toUpperCase(),
+                edad: columns[2].trim(),
+                densidad: columns[3].trim(),
+                sombrio: columns[4].trim()
+            };
+            
+            // Normalizar etapa si viene como número o texto diferente
+            // El select espera: CRECIMIENTO, ZOCA, PRODUCCION
+            // Mapeo básico si es necesario, aunque el ejemplo muestra texto exacto
+            
+            addRow(data);
+            importedCount++;
+        }
+    });
+
+    if (importedCount > 0) {
+        closePasteModal();
+        // alert(`Se importaron ${importedCount} filas correctamente.`);
+    } else {
+        alert('No se pudieron importar datos. Verifique el formato (copie y pegue desde Excel).');
     }
 }
 

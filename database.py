@@ -173,9 +173,16 @@ class DatabaseManager:
         finally:
             cursor.close()
     
+    def _get_cursor(self):
+        """Obtiene un cursor configurado según el tipo de BD"""
+        if self.use_mysql:
+            return self.connection.cursor(dictionary=True)
+        else:
+            return self.connection.cursor()
+
     def _execute_query(self, query: str, params: tuple = None):
         """Ejecuta una consulta y retorna el cursor"""
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         if params:
             cursor.execute(query, params)
         else:
@@ -210,7 +217,7 @@ class DatabaseManager:
                 return None
             logger.info("[DB] Conexión establecida exitosamente")
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             # Determinar rango de años a revisar
@@ -350,7 +357,7 @@ class DatabaseManager:
         if not self.connection:
             return None
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             table_name = self.get_table_by_year(year, 'orden')
@@ -378,7 +385,7 @@ class DatabaseManager:
         if not self.connection:
             return None
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             if self.use_mysql:
@@ -402,7 +409,7 @@ class DatabaseManager:
         if not self.connection:
             return None
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             if self.use_mysql:
@@ -426,7 +433,7 @@ class DatabaseManager:
         if not self.connection:
             return None
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             # SQLite usa codigo_municipio como nombre de columna
@@ -451,7 +458,7 @@ class DatabaseManager:
         if not self.connection:
             return None
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             if self.use_mysql:
@@ -475,7 +482,7 @@ class DatabaseManager:
         if not self.connection:
             return None
         
-        cursor = self.connection.cursor(dictionary=True if self.use_mysql else None)
+        cursor = self._get_cursor()
         
         try:
             if self.use_mysql:
