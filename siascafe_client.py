@@ -182,6 +182,51 @@ class SIASCAFEClient:
                 # Memory tweaks
                 chrome_options.add_argument('--max_old_space_size=4096')
                 chrome_options.add_argument('--js-flags=--max-old-space-size=4096')
+                
+                # Optimizaciones específicas para Docker/Contenedores
+                # Detectar si estamos en Docker (verificar si existe /.dockerenv)
+                is_docker = os.path.exists('/.dockerenv') or os.path.exists('/proc/1/cgroup')
+                if is_docker:
+                    logger.info("[SELENIUM] Detectado entorno Docker, aplicando optimizaciones...")
+                    # Optimizaciones para Docker: reducir uso de memoria y mejorar rendimiento
+                    # NOTA: --single-process puede causar problemas de estabilidad, se omite
+                    chrome_options.add_argument('--disable-ipc-flooding-protection')
+                    chrome_options.add_argument('--disable-features=TranslateUI')
+                    chrome_options.add_argument('--disable-features=BlinkGenPropertyTrees')
+                    chrome_options.add_argument('--disable-features=IsolateOrigins,site-per-process')
+                    chrome_options.add_argument('--disable-site-isolation-trials')
+                    chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+                    # Reducir timeouts de red y procesos en segundo plano
+                    chrome_options.add_argument('--aggressive-cache-discard')
+                    chrome_options.add_argument('--disable-hang-monitor')
+                    chrome_options.add_argument('--disable-prompt-on-repost')
+                    chrome_options.add_argument('--disable-domain-reliability')
+                    chrome_options.add_argument('--disable-component-update')
+                    chrome_options.add_argument('--disable-client-side-phishing-detection')
+                    chrome_options.add_argument('--disable-sync')
+                    chrome_options.add_argument('--metrics-recording-only')
+                    chrome_options.add_argument('--no-first-run')
+                    chrome_options.add_argument('--no-default-browser-check')
+                    chrome_options.add_argument('--disable-default-apps')
+                    chrome_options.add_argument('--disable-popup-blocking')
+                    chrome_options.add_argument('--disable-translate')
+                    chrome_options.add_argument('--disable-background-downloads')
+                    chrome_options.add_argument('--disable-add-to-shelf')
+                    chrome_options.add_argument('--disable-breakpad')
+                    chrome_options.add_argument('--disable-component-extensions-with-background-pages')
+                    chrome_options.add_argument('--disable-extensions-file-access-check')
+                    chrome_options.add_argument('--disable-extensions-http-throttling')
+                    chrome_options.add_argument('--disable-renderer-accessibility')
+                    chrome_options.add_argument('--force-color-profile=srgb')
+                    chrome_options.add_argument('--memory-pressure-off')
+                    # Ajustar memoria para Docker (más conservador)
+                    chrome_options.add_argument('--max_old_space_size=2048')
+                    chrome_options.add_argument('--js-flags=--max-old-space-size=2048')
+                    # Mejorar rendimiento de renderizado en Docker
+                    chrome_options.add_argument('--disable-accelerated-2d-canvas')
+                    chrome_options.add_argument('--disable-accelerated-video-decode')
+                    chrome_options.add_argument('--disable-gpu-compositing')
+                    logger.info("[SELENIUM] Optimizaciones Docker aplicadas")
             else:
                 logger.info("[SELENIUM] Modo con ventana visible")
             
@@ -301,10 +346,17 @@ class SIASCAFEClient:
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             logger.info("[SELENIUM] [OK] Driver inicializado")
             
-            # Timeouts
-            self.driver.implicitly_wait(15)
-            self.driver.set_page_load_timeout(140)
-            self.driver.set_script_timeout(80)
+            # Timeouts - Aumentados para Docker (más lento)
+            is_docker = os.path.exists('/.dockerenv') or os.path.exists('/proc/1/cgroup')
+            if is_docker:
+                logger.info("[SELENIUM] Ajustando timeouts para Docker (más largos)...")
+                self.driver.implicitly_wait(20)  # Aumentado de 15 a 20
+                self.driver.set_page_load_timeout(180)  # Aumentado de 140 a 180
+                self.driver.set_script_timeout(120)  # Aumentado de 80 a 120
+            else:
+                self.driver.implicitly_wait(15)
+                self.driver.set_page_load_timeout(140)
+                self.driver.set_script_timeout(80)
 
         except Exception as e:
             logger.error(f"[SELENIUM] [ERROR] Fallo crítico al inicializar: {e}")
@@ -394,7 +446,11 @@ class SIASCAFEClient:
             # En lugar de esperar un tiempo fijo, esperar explícitamente
             # a que el portlet React principal esté montado.
             logger.info("[SELENIUM] Esperando a que se monte el portlet principal...")
-            WebDriverWait(self.driver, 50).until(  # Aumentado de 30 a 50 segundos (+20s)
+            # Timeout más largo para Docker
+            is_docker = os.path.exists('/.dockerenv') or os.path.exists('/proc/1/cgroup')
+            portlet_timeout = 80 if is_docker else 50
+            logger.info(f"[SELENIUM] Timeout para portlet: {portlet_timeout}s {'(Docker)' if is_docker else '(Local)'}")
+            WebDriverWait(self.driver, portlet_timeout).until(
                 EC.presence_of_element_located(
                     (By.CSS_SELECTOR, "div[id^='js-portlet-_pacanalisissuelosindividual_INSTANCE_']")
                 )
@@ -472,7 +528,11 @@ class SIASCAFEClient:
         """Llena el formulario de SIASCAFE con los datos"""
         logger.info("[SELENIUM] Buscando formulario en la página...")
         # Aumentar timeout porque la app es React/Liferay y tarda en montar
-        wait = WebDriverWait(self.driver, 50)  # Aumentado de 30 a 50 segundos (+20s)
+        # Timeout más largo para Docker
+        is_docker = os.path.exists('/.dockerenv') or os.path.exists('/proc/1/cgroup')
+        form_timeout = 80 if is_docker else 50
+        logger.info(f"[SELENIUM] Timeout para formulario: {form_timeout}s {'(Docker)' if is_docker else '(Local)'}")
+        wait = WebDriverWait(self.driver, form_timeout)
         container = None
         
         try:
@@ -988,7 +1048,7 @@ class SIASCAFEClient:
             logger.error(traceback.format_exc())
             raise
     
-    def _wait_for_pdf(self, timeout: int = 80) -> Optional[bytes]:  # Aumentado de 60 a 80 segundos (+20s)
+    def _wait_for_pdf(self, timeout: int = None) -> Optional[bytes]:
         """Espera a que aparezca el botón 'Descargar PDF', hace clic y descarga el PDF"""
         try:
             import platform
@@ -1004,24 +1064,54 @@ class SIASCAFEClient:
             download_dir = os.path.abspath(download_dir)
             logger.info(f"[SIASCAFE] Buscando PDF en: {download_dir}")
 
-            logger.info("[SIASCAFE] Esperando a que aparezca el botón 'Descargar PDF'...")
-            wait = WebDriverWait(self.driver, timeout)
+            # Timeout dinámico según entorno (reducido para evitar esperas innecesarias)
+            is_docker = os.path.exists('/.dockerenv') or os.path.exists('/proc/1/cgroup')
+            if timeout is None:
+                # Timeout más corto para buscar el botón (30s debería ser suficiente)
+                button_search_timeout = 30 if is_docker else 20
+                # Timeout más largo solo para la descarga del archivo PDF
+                download_timeout = 60 if is_docker else 40
+            else:
+                button_search_timeout = min(timeout // 2, 30)  # Máximo 30s para buscar botón
+                download_timeout = timeout
             
-            # Esperar a que aparezca el botón "Descargar PDF"
-            # El botón es un <span> con role="button" que contiene el texto "Descargar PDF"
+            logger.info(f"[SIASCAFE] Timeout para buscar botón: {button_search_timeout}s, Timeout para descarga: {download_timeout}s {'(Docker)' if is_docker else '(Local)'}")
+
+            logger.info("[SIASCAFE] Esperando a que aparezca el botón 'Descargar PDF'...")
+            
+            # Estrategia 1: Buscar primero por presencia (más rápido), luego verificar si es clickeable
+            download_button = None
+            wait_presence = WebDriverWait(self.driver, button_search_timeout)
+            wait_clickable = WebDriverWait(self.driver, 5)  # Timeout corto para verificar clickeable
+            
             try:
-                # Buscar el span con role="button" que contiene "Descargar PDF"
-                download_button = wait.until(
-                    EC.element_to_be_clickable(
+                # Primero buscar por presencia (más rápido que clickeable)
+                logger.info("[SIASCAFE] Buscando botón por presencia...")
+                download_button = wait_presence.until(
+                    EC.presence_of_element_located(
                         (By.XPATH, "//span[@role='button' and contains(., 'Descargar PDF')]")
                     )
                 )
-                logger.info("[SIASCAFE] [OK] Botón 'Descargar PDF' encontrado por texto")
-            except TimeoutException:
-                # Fallback: buscar por el ícono AssignmentReturnedIcon y encontrar el span padre
+                logger.info("[SIASCAFE] [OK] Botón encontrado por presencia, verificando si es clickeable...")
+                
+                # Verificar si es clickeable (con timeout corto)
                 try:
-                    logger.info("[SIASCAFE] Buscando botón por ícono AssignmentReturnedIcon...")
-                    icon = wait.until(
+                    download_button = wait_clickable.until(
+                        EC.element_to_be_clickable(
+                            (By.XPATH, "//span[@role='button' and contains(., 'Descargar PDF')]")
+                        )
+                    )
+                    logger.info("[SIASCAFE] [OK] Botón es clickeable")
+                except TimeoutException:
+                    logger.warning("[SIASCAFE] Botón encontrado pero no es clickeable aún, intentando de todas formas...")
+                    # Intentar de todas formas, puede que funcione
+                    
+            except TimeoutException:
+                # Estrategia 2: Buscar por ícono como fallback
+                logger.info("[SIASCAFE] No se encontró por texto, buscando por ícono AssignmentReturnedIcon...")
+                try:
+                    wait_icon = WebDriverWait(self.driver, button_search_timeout)
+                    icon = wait_icon.until(
                         EC.presence_of_element_located(
                             (By.CSS_SELECTOR, "svg[data-testid='AssignmentReturnedIcon']")
                         )
@@ -1030,15 +1120,20 @@ class SIASCAFEClient:
                     download_button = icon.find_element(By.XPATH, "./ancestor::span[@role='button']")
                     logger.info("[SIASCAFE] [OK] Botón 'Descargar PDF' encontrado por ícono")
                 except Exception as e:
-                    logger.error(f"[SIASCAFE] [ERROR] No se pudo encontrar el botón 'Descargar PDF': {e}")
+                    logger.error(f"[SIASCAFE] [ERROR] No se pudo encontrar el botón 'Descargar PDF' después de {button_search_timeout}s: {e}")
                     # Guardar HTML para diagnóstico
                     try:
-                        with open('/tmp/siascafe_page_before_download.html', 'w', encoding='utf-8') as f:
+                        html_path = '/tmp/siascafe_page_before_download.html'
+                        with open(html_path, 'w', encoding='utf-8') as f:
                             f.write(self.driver.page_source)
-                        logger.info("[SIASCAFE] HTML guardado en /tmp/siascafe_page_before_download.html para diagnóstico")
+                        logger.info(f"[SIASCAFE] HTML guardado en {html_path} para diagnóstico")
                     except:
                         pass
                     return None
+            
+            if not download_button:
+                logger.error("[SIASCAFE] [ERROR] No se pudo obtener referencia al botón")
+                return None
             
             # Hacer clic en el botón "Descargar PDF"
             logger.info("[SIASCAFE] Haciendo clic en el botón 'Descargar PDF'...")
@@ -1056,14 +1151,14 @@ class SIASCAFEClient:
             # download_dir ya se definió arriba
             os.makedirs(download_dir, exist_ok=True)
             
-            logger.info(f"[SIASCAFE] Esperando descarga del PDF en {download_dir} (hasta {timeout} segundos)...")
+            logger.info(f"[SIASCAFE] Esperando descarga del PDF en {download_dir} (hasta {download_timeout} segundos)...")
             start_time = time.time()
             check_interval = 1  # Verificar cada segundo
             initial_files = set()
             if os.path.exists(download_dir):
                 initial_files = set([f for f in os.listdir(download_dir) if f.endswith('.pdf')])
             
-            while time.time() - start_time < timeout:
+            while time.time() - start_time < download_timeout:
                 if os.path.exists(download_dir):
                     current_files = set([f for f in os.listdir(download_dir) if f.endswith('.pdf')])
                     new_files = current_files - initial_files
@@ -1096,12 +1191,12 @@ class SIASCAFEClient:
                                 logger.debug(f"[SIASCAFE] Error verificando archivo {filename}: {e}")
                 
                 elapsed = time.time() - start_time
-                if elapsed < timeout:
+                if elapsed < download_timeout:
                     time.sleep(check_interval)
                     if int(elapsed) % 5 == 0:  # Log cada 5 segundos
-                        logger.info(f"[SIASCAFE] Esperando descarga del PDF... ({int(elapsed)}/{timeout} segundos)")
+                        logger.info(f"[SIASCAFE] Esperando descarga del PDF... ({int(elapsed)}/{download_timeout} segundos)")
             
-            logger.error(f"[SIASCAFE] Timeout de {timeout} segundos alcanzado esperando descarga del PDF")
+            logger.error(f"[SIASCAFE] Timeout de {download_timeout} segundos alcanzado esperando descarga del PDF")
             
             # Guardar HTML para diagnóstico
             logger.info("[SIASCAFE] Guardando página HTML para análisis...")
